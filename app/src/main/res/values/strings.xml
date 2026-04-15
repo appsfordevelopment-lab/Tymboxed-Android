@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">Tyme Boxed</string>
+
+    <!-- Accessibility service surface strings (shown in system Settings > Accessibility) -->
+    <string name="accessibility_service_label">Tyme Boxed App Blocker</string>
+    <string name="accessibility_service_summary">Blocks apps during a focus session</string>
+    <string name="accessibility_service_description">
+        Tyme Boxed needs Accessibility to detect when a blocked app is opened during a
+        focus session, and send you back to the home screen. It never reads screen
+        content, messages, or personal data. You can revoke access any time.
+    </string>
+
+    <!-- Foreground service notification strings -->
+    <string name="session_channel_name">Active Session</string>
+    <string name="session_channel_description">Ongoing notification shown while a focus session is running.</string>
+</resources>
