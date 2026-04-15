@@ -40,7 +40,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -586,9 +585,6 @@ private fun OtpStep(
     val fieldBg = cs.surface
     val muted = cs.onSurfaceVariant
     val backBtnBg = cs.surfaceContainerHigh
-    val dividerLine = cs.outline.copy(alpha = if (isDark) 0.5f else 0.35f)
-    val googleBg = cs.surface
-    val googleBorder = cs.outline.copy(alpha = if (isDark) 0.5f else 0.4f)
     val primaryBtnContainer = if (isDark) fieldBg else cs.onSurface
     val primaryBtnContent = if (isDark) cs.onSurface else cs.surface
     val otpComplete = otp.length == OtpLength
@@ -747,49 +743,6 @@ private fun OtpStep(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(28.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(1.dp)
-                        .background(dividerLine),
-                )
-                Text(
-                    text = "OR",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = muted,
-                        fontWeight = FontWeight.Medium,
-                    ),
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                )
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(1.dp)
-                        .background(dividerLine),
-                )
-            }
-            Spacer(modifier = Modifier.height(28.dp))
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .background(googleBg)
-                    .border(1.dp, googleBorder, CircleShape)
-                    .clickable { /* Google Sign-In not configured on Android */ },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "G",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF4285F4),
-                )
-            }
         }
     }
 }
@@ -803,56 +756,86 @@ private fun PermissionsStep(
     val ctx = LocalContext.current
     val states by vm.states.collectAsState()
     val allRequiredGranted by vm.allRequiredGranted.collectAsState()
+    val cs = MaterialTheme.colorScheme
+    val required = TymePermission.requiredPermissions
+    val grantedRequiredCount = remember(states) {
+        required.count { states[it] == true }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(cs.background)
+            .statusBarsPadding(),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 12.dp, top = 8.dp),
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(
+            FilledIconButton(
                 onClick = onBack,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                modifier = Modifier.size(40.dp),
+                shape = CircleShape,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = cs.surfaceContainerHigh,
+                    contentColor = cs.onSurface,
+                ),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(22.dp),
                 )
             }
         }
+
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 16.dp),
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
         ) {
             Text(
-                text = "Grant access",
-                style = MaterialTheme.typography.displaySmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                ),
-                modifier = Modifier
-                    .padding(horizontal = 8.dp)
-                    .padding(top = 16.dp),
+                text = "Almost there",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = cs.primary,
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "Tyme Boxed needs these to block apps and keep sessions running. " +
-                    "Required items must be granted before you can start a session.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp),
+                text = "Grant access",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = cs.onBackground,
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "Allow what Tyme Boxed needs to block apps and keep sessions running. " +
+                    "You can change these anytime in Settings.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = cs.onSurfaceVariant,
+                lineHeight = 22.sp,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = buildString {
+                    append(grantedRequiredCount)
+                    append(" of ")
+                    append(required.size)
+                    append(" required granted")
+                },
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = if (allRequiredGranted) {
+                    Color(0xFF2E7D32)
+                } else {
+                    cs.onSurfaceVariant
+                },
+            )
+            Spacer(modifier = Modifier.height(18.dp))
+
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -886,14 +869,32 @@ private fun PermissionsStep(
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(8.dp))
             }
-            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .padding(top = 4.dp, bottom = 20.dp),
+        ) {
+            if (!allRequiredGranted) {
+                Text(
+                    text = "Tap Grant beside each required permission. You may be sent to " +
+                        "Android settings — use the back gesture or button to return here when done.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onSurfaceVariant,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.padding(bottom = 12.dp),
+                )
+            }
             ActionButton(
-                title = if (allRequiredGranted) "Continue" else "Grant required permissions",
+                title = if (allRequiredGranted) "Continue" else "Grant all required above",
                 onClick = onDone,
                 enabled = allRequiredGranted,
             )
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

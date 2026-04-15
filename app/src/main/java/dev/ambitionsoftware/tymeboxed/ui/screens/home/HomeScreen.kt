@@ -3,6 +3,7 @@ package dev.ambitionsoftware.tymeboxed.ui.screens.home
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -207,7 +208,8 @@ fun HomeScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val homeBg = Color(0xFF000000)
+    val cs = MaterialTheme.colorScheme
+    val homeBg = cs.background
     Scaffold(
         containerColor = homeBg,
         floatingActionButton = {
@@ -238,7 +240,7 @@ fun HomeScreen(
                     text = "Tyme Boxed",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = cs.onBackground,
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 OutlinedButton(
@@ -246,10 +248,10 @@ fun HomeScreen(
                     modifier = Modifier.size(44.dp),
                     shape = CircleShape,
                     contentPadding = PaddingValues(0.dp),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                    border = BorderStroke(1.dp, cs.outline.copy(alpha = 0.6f)),
                     colors = ButtonDefaults.outlinedButtonColors(
                         containerColor = Color.Transparent,
-                        contentColor = Color.White,
+                        contentColor = cs.onBackground,
                     ),
                 ) {
                     Icon(
@@ -309,8 +311,14 @@ fun HomeScreen(
  */
 @Composable
 private fun WelcomeEmptyCard(onTap: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
     val cardShape = RoundedCornerShape(28.dp)
     val hourglassGold = Color(0xFFC4A77D)
+    val titleColor = if (isDark) Color.White else cs.onSurface
+    val captionColor = if (isDark) Color.White.copy(alpha = 0.92f) else cs.onSurface.copy(alpha = 0.88f)
+    val subtitleColor = if (isDark) Color(0xFFBBBBBB) else cs.onSurfaceVariant
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -321,36 +329,69 @@ private fun WelcomeEmptyCard(onTap: () -> Unit) {
         BoxWithConstraints(modifier = Modifier.matchParentSize()) {
             val w = constraints.maxWidth.toFloat()
             val h = constraints.maxHeight.toFloat()
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFF1E1E22),
-                                Color(0xFF252420),
-                                Color(0xFF2A2520),
+            if (isDark) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFF1E1E22),
+                                    Color(0xFF252420),
+                                    Color(0xFF2A2520),
+                                ),
+                                start = Offset(0f, h * 0.5f),
+                                end = Offset(w, 0f),
                             ),
-                            start = Offset(0f, h * 0.5f),
-                            end = Offset(w, 0f),
                         ),
-                    ),
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                Color(0xFFE8D4B8).copy(alpha = 0.42f),
-                                Color(0xFFC4A77D).copy(alpha = 0.12f),
-                                Color.Transparent,
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFFE8D4B8).copy(alpha = 0.42f),
+                                    Color(0xFFC4A77D).copy(alpha = 0.12f),
+                                    Color.Transparent,
+                                ),
+                                center = Offset(w * 0.92f, h * 0.08f),
+                                radius = w * 0.65f,
                             ),
-                            center = Offset(w * 0.92f, h * 0.08f),
-                            radius = w * 0.65f,
                         ),
-                    ),
-            )
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFFF8F8FA),
+                                    Color(0xFFF2F0EC),
+                                    Color(0xFFEDE8E0),
+                                ),
+                                start = Offset(0f, h * 0.5f),
+                                end = Offset(w, 0f),
+                            ),
+                        ),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFFC4A77D).copy(alpha = 0.28f),
+                                    Color(0xFFE8D4B8).copy(alpha = 0.18f),
+                                    Color.Transparent,
+                                ),
+                                center = Offset(w * 0.92f, h * 0.08f),
+                                radius = w * 0.65f,
+                            ),
+                        ),
+                )
+            }
         }
         Column(
             modifier = Modifier
@@ -365,14 +406,16 @@ private fun WelcomeEmptyCard(onTap: () -> Unit) {
                     text = "Physically block distracting apps",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
-                    color = Color.White.copy(alpha = 0.92f),
+                    color = captionColor,
                     modifier = Modifier.weight(1f),
                 )
                 Box(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(hourglassGold),
+                        .background(
+                            if (isDark) hourglassGold else hourglassGold.copy(alpha = 0.95f),
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -388,21 +431,21 @@ private fun WelcomeEmptyCard(onTap: () -> Unit) {
                 text = "Welcome to",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = titleColor,
                 fontSize = 26.sp,
             )
             Text(
                 text = "Tyme Boxed",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = titleColor,
                 fontSize = 28.sp,
             )
             Spacer(modifier = Modifier.height(20.dp))
             Text(
                 text = "Tap here to get started on your first profile.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFFBBBBBB),
+                color = subtitleColor,
                 maxLines = 3,
             )
         }

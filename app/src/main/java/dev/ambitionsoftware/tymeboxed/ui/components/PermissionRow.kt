@@ -1,5 +1,6 @@
 package dev.ambitionsoftware.tymeboxed.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,7 +15,6 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,10 +45,18 @@ fun PermissionRow(
     modifier: Modifier = Modifier,
     unavailable: Boolean = false,
 ) {
+    val rowClickable = !unavailable && !granted
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .then(
+                if (rowClickable) {
+                    Modifier.clickable(onClick = onGrantClick)
+                } else {
+                    Modifier
+                },
+            )
+            .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val iconTint = when {
@@ -105,14 +113,12 @@ fun PermissionRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            TextButton(onClick = onGrantClick) {
-                Text(
-                    text = "Grant",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
+            Text(
+                text = "Grant →",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold,
+            )
         }
     }
 }
