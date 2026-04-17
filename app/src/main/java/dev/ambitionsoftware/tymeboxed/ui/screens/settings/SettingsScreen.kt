@@ -1,6 +1,7 @@
 package dev.ambitionsoftware.tymeboxed.ui.screens.settings
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,13 +14,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -42,6 +47,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
+import dev.ambitionsoftware.tymeboxed.BuildConfig
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -63,7 +70,6 @@ import dev.ambitionsoftware.tymeboxed.ui.theme.ThemeController
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -79,14 +85,6 @@ class SettingsViewModel @Inject constructor(
         started = SharingStarted.Eagerly,
         initialValue = AccentColors.default,
     )
-
-    val isBlocking: StateFlow<Boolean> = sessionRepository.activeSession
-        .map { it != null }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = false,
-        )
 
     fun selectAccent(accent: AccentColor) {
         viewModelScope.launch { themeController.select(accent) }
@@ -124,8 +122,8 @@ fun SettingsScreen(
     val settingsVm: SettingsViewModel = hiltViewModel()
     val permissionsVm: PermissionsViewModel = hiltViewModel()
     val accent by settingsVm.accent.collectAsState()
-    val isBlocking by settingsVm.isBlocking.collectAsState()
     val states by permissionsVm.states.collectAsState()
+    val allRequiredGranted by permissionsVm.allRequiredGranted.collectAsState()
 
     // Refresh permission states on resume.
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -141,40 +139,52 @@ fun SettingsScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                }
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "Settings",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-            }
-        },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .statusBarsPadding()
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SettingsCloseButton(onClick = onBack)
+            }
+
+            Text(
+                text = "Settings",
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp, bottom = 4.dp),
+            )
+
             ThemeCard(
                 currentAccent = accent,
                 onSelect = settingsVm::selectAccent,
             )
 
-            AboutCard(isBlocking = isBlocking)
+            AboutCard(
+                accessAuthorized = allRequiredGranted,
+                onBuyDevice = {
+                    runCatching {
+                        ctx.startActivity(
+                            Intent(
+                                Intent.ACTION_VIEW,
+                                "https://www.tymeboxed.app/".toUri(),
+                            ),
+                        )
+                    }
+                },
+            )
 
             PermissionsCard(
                 states = states,
@@ -197,62 +207,122 @@ fun SettingsScreen(
 }
 
 @Composable
+private fun SettingsCloseButton(onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(cs.surfaceVariant),
+    ) {
+        Icon(
+            imageVector = Icons.Default.Close,
+            contentDescription = "Close settings",
+            tint = cs.onSurface,
+        )
+    }
+}
+
+@Composable
 private fun ThemeCard(
     currentAccent: AccentColor,
     onSelect: (AccentColor) -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    SettingsCard(title = "Appearance") {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { menuOpen = true }
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
+    val cs = MaterialTheme.colorScheme
+    SettingsCard(title = "Theme", elevation = 0.dp) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
                 modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(currentAccent.value),
-            )
-            Spacer(modifier = Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Theme Color",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = currentAccent.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-            DropdownMenu(
-                expanded = menuOpen,
-                onDismissRequest = { menuOpen = false },
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                AccentColors.all.forEach { accent ->
-                    DropdownMenuItem(
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(18.dp)
-                                        .clip(CircleShape)
-                                        .background(accent.value),
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(accent.name)
-                            }
-                        },
-                        onClick = {
-                            onSelect(accent)
-                            menuOpen = false
-                        },
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(cs.primary),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Palette,
+                        contentDescription = null,
+                        tint = cs.onPrimary,
+                        modifier = Modifier.size(22.dp),
                     )
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Appearance",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = cs.onSurface,
+                    )
+                    Text(
+                        text = "Customize the look of your app",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = cs.onSurfaceVariant,
+                    )
+                }
+            }
+            SettingsCardDivider()
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { menuOpen = true }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "Theme Color",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = cs.onSurface,
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = currentAccent.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = cs.onSurfaceVariant,
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = cs.onSurfaceVariant,
+                        )
+                    }
+                }
+                DropdownMenu(
+                    expanded = menuOpen,
+                    onDismissRequest = { menuOpen = false },
+                ) {
+                    AccentColors.all.forEach { accentOption ->
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(18.dp)
+                                            .clip(CircleShape)
+                                            .background(accentOption.value),
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(accentOption.name)
+                                }
+                            },
+                            onClick = {
+                                onSelect(accentOption)
+                                menuOpen = false
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -260,17 +330,70 @@ private fun ThemeCard(
 }
 
 @Composable
-private fun AboutCard(isBlocking: Boolean) {
-    SettingsCard(title = "About") {
-        LabelRow(label = "Version", value = "1.0")
+private fun AboutCard(
+    accessAuthorized: Boolean,
+    onBuyDevice: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val versionLabel = "v${BuildConfig.VERSION_NAME}"
+    SettingsCard(title = "About", elevation = 0.dp) {
+        LabelRow(label = "Version", value = versionLabel)
         SettingsCardDivider()
-        LabelRow(
-            label = "Blocking Status",
-            value = if (isBlocking) "Blocked" else "Not Blocking",
-            valueColor = if (isBlocking) MaterialTheme.colorScheme.primary else null,
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = "Screen Time Access",
+                style = MaterialTheme.typography.bodyLarge,
+                color = cs.onSurface,
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (accessAuthorized) Color(0xFF34C759) else Color(0xFFFF9500),
+                        ),
+                )
+                Text(
+                    text = if (accessAuthorized) "Authorized" else "Action needed",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = cs.onSurfaceVariant,
+                )
+            }
+        }
         SettingsCardDivider()
-        LabelRow(label = "Made in", value = "Hyderabad, India")
+        LabelRow(label = "Made in", value = "Hyderabad India 🇮🇳")
+        SettingsCardDivider()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onBuyDevice)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = "Buy a Tyme Boxed device",
+                style = MaterialTheme.typography.bodyLarge,
+                color = cs.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = Icons.Default.OpenInNew,
+                contentDescription = null,
+                tint = cs.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }
 
@@ -307,7 +430,7 @@ private fun PermissionsCard(
     onGrantClick: (TymePermission) -> Unit,
     onOpenFull: () -> Unit,
 ) {
-    SettingsCard(title = "Permissions") {
+    SettingsCard(title = "Permissions", elevation = 0.dp) {
         val perms = TymePermission.entries
         perms.forEachIndexed { idx, perm ->
             val nfcUnavailable = perm == TymePermission.NFC && !isNfcAvailable
@@ -339,52 +462,49 @@ private fun PermissionsCard(
 
 @Composable
 private fun TroubleshootingCard(onResetBlockingState: () -> Unit) {
-    SettingsCard(title = "Troubleshooting") {
+    SettingsCard(title = "Troubleshooting", elevation = 0.dp) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onResetBlockingState() }
                 .padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Reset Blocking State",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = "Ends any active session and clears lingering blocking state.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Text(
+                text = "Reset Blocking State",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
     }
 }
 
 @Composable
 private fun DangerCard(onDeleteAllData: () -> Unit) {
-    SettingsCard(title = "Danger Zone") {
+    SettingsCard(title = null, elevation = 0.dp) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onDeleteAllData() }
                 .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Delete All Data",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.error,
-                )
-                Text(
-                    text = "Removes every profile, session, and tag from this device. Cannot be undone.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = "Delete Account",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
     }
 }

@@ -560,7 +560,9 @@ private fun ActivityHeatmapCard() {
     val cs = MaterialTheme.colorScheme
     val isDark = isSystemInDarkTheme()
     val cardShape = RoundedCornerShape(22.dp)
-    val cellShape = RoundedCornerShape(6.dp)
+    val cellShape = RoundedCornerShape(8.dp)
+    val cellHeight = 38.dp
+    val rowGap = 8.dp
     val legendColors = listOf(
         Color(0xFF3A3A3C),
         Color(0xFF8B7355),
@@ -572,11 +574,12 @@ private fun ActivityHeatmapCard() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 248.dp)
             .clip(cardShape)
             .border(1.dp, cs.outline.copy(alpha = 0.45f), cardShape)
-            .background(if (isDark) cs.surface else cs.surface)
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .background(cs.surface)
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -584,11 +587,11 @@ private fun ActivityHeatmapCard() {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             legendColors.forEachIndexed { i, c ->
-                if (i > 0) Spacer(modifier = Modifier.width(6.dp))
+                if (i > 0) Spacer(modifier = Modifier.width(8.dp))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
                         modifier = Modifier
-                            .size(12.dp)
+                            .size(14.dp)
                             .clip(RoundedCornerShape(3.dp))
                             .background(c),
                     )
@@ -596,7 +599,7 @@ private fun ActivityHeatmapCard() {
                         text = legendLabels[i],
                         style = MaterialTheme.typography.labelSmall,
                         color = cs.onSurfaceVariant,
-                        fontSize = 8.sp,
+                        fontSize = 9.sp,
                     )
                 }
             }
@@ -604,30 +607,40 @@ private fun ActivityHeatmapCard() {
         val startDay = 21
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             repeat(7) { col ->
                 Text(
                     text = "${startDay + col}",
                     style = MaterialTheme.typography.labelSmall,
                     color = cs.onSurface,
-                    modifier = Modifier.widthIn(min = 28.dp),
+                    modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
                 )
             }
         }
-        repeat(5) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                repeat(7) {
-                    Box(
-                        modifier = Modifier
-                            .size(width = 28.dp, height = 22.dp)
-                            .clip(cellShape)
-                            .background(cs.surfaceVariant.copy(alpha = if (isDark) 0.55f else 0.85f)),
-                    )
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(rowGap),
+        ) {
+            repeat(4) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    repeat(7) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(cellHeight)
+                                .clip(cellShape)
+                                .background(
+                                    cs.surfaceVariant.copy(
+                                        alpha = if (isDark) 0.55f else 0.85f,
+                                    ),
+                                ),
+                        )
+                    }
                 }
             }
         }
