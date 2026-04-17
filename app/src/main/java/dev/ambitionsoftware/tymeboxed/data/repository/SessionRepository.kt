@@ -38,4 +38,15 @@ class SessionRepository @Inject constructor(
 
     suspend fun countCompletedForProfile(profileId: String): Int =
         sessionDao.countCompletedForProfile(profileId)
+
+    fun observeCompletedSessionsForProfileBetween(
+        profileId: String,
+        startMs: Long,
+        endMs: Long,
+    ): Flow<List<Session>> =
+        sessionDao.observeCompletedSessionsForProfileBetween(profileId, startMs, endMs)
+            .map { list -> list.map { it.toDomain() } }
+
+    fun observeSessionsForProfile(profileId: String): Flow<List<Session>> =
+        sessionDao.observeForProfile(profileId).map { list -> list.map { it.toDomain() } }
 }

@@ -28,6 +28,14 @@ class AppPreferences @Inject constructor(
     val introCompleted: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_INTRO_COMPLETED] ?: false }
 
+    /** When false, the home Activity heatmap is hidden. */
+    val activityChartVisible: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_ACTIVITY_CHART_VISIBLE] ?: true }
+
+    /** One of [ActivityChartType] string constants. */
+    val activityChartType: Flow<String> =
+        context.dataStore.data.map { it[KEY_ACTIVITY_CHART_TYPE] ?: ActivityChartType.FOUR_WEEK }
+
     suspend fun setThemeColorName(name: String) {
         context.dataStore.edit { it[KEY_THEME] = name }
     }
@@ -36,11 +44,28 @@ class AppPreferences @Inject constructor(
         context.dataStore.edit { it[KEY_INTRO_COMPLETED] = completed }
     }
 
+    suspend fun setActivityChartVisible(visible: Boolean) {
+        context.dataStore.edit { it[KEY_ACTIVITY_CHART_VISIBLE] = visible }
+    }
+
+    suspend fun setActivityChartType(type: String) {
+        context.dataStore.edit { it[KEY_ACTIVITY_CHART_TYPE] = type }
+    }
+
     companion object {
         /** Matches the iOS default in `ThemeManager.swift`. */
         const val DEFAULT_THEME_NAME = "Warm Sandstone"
 
         private val KEY_THEME = stringPreferencesKey("theme_color_name")
         private val KEY_INTRO_COMPLETED = booleanPreferencesKey("intro_completed")
+        private val KEY_ACTIVITY_CHART_VISIBLE = booleanPreferencesKey("activity_chart_visible")
+        private val KEY_ACTIVITY_CHART_TYPE = stringPreferencesKey("activity_chart_type")
     }
+}
+
+/** Persisted values for the home Activity chart (Manage sheet). */
+object ActivityChartType {
+    const val FOUR_WEEK = "four_week"
+    const val WEEKLY = "weekly"
+    const val MONTHLY = "monthly"
 }

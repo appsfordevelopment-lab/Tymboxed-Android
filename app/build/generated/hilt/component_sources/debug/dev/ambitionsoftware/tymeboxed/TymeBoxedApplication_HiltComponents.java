@@ -49,7 +49,9 @@ import dev.ambitionsoftware.tymeboxed.di.DatabaseModule;
 import dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel_HiltModules;
 import dev.ambitionsoftware.tymeboxed.service.BootCompletedReceiver_GeneratedInjector;
 import dev.ambitionsoftware.tymeboxed.ui.screens.home.HomeViewModel_HiltModules;
+import dev.ambitionsoftware.tymeboxed.ui.screens.insights.ProfileInsightsViewModel_HiltModules;
 import dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileEditViewModel_HiltModules;
+import dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileSessionsViewModel_HiltModules;
 import dev.ambitionsoftware.tymeboxed.ui.screens.settings.SettingsViewModel_HiltModules;
 import dev.ambitionsoftware.tymeboxed.ui.theme.ThemeViewModel_HiltModules;
 import javax.annotation.processing.Generated;
@@ -166,6 +168,8 @@ public final class TymeBoxedApplication_HiltComponents {
           HomeViewModel_HiltModules.KeyModule.class,
           PermissionsViewModel_HiltModules.KeyModule.class,
           ProfileEditViewModel_HiltModules.KeyModule.class,
+          ProfileInsightsViewModel_HiltModules.KeyModule.class,
+          ProfileSessionsViewModel_HiltModules.KeyModule.class,
           SettingsViewModel_HiltModules.KeyModule.class,
           ThemeViewModel_HiltModules.KeyModule.class,
           ActivityCBuilderModule.class,
@@ -209,6 +213,8 @@ public final class TymeBoxedApplication_HiltComponents {
           HomeViewModel_HiltModules.BindsModule.class,
           PermissionsViewModel_HiltModules.BindsModule.class,
           ProfileEditViewModel_HiltModules.BindsModule.class,
+          ProfileInsightsViewModel_HiltModules.BindsModule.class,
+          ProfileSessionsViewModel_HiltModules.BindsModule.class,
           SettingsViewModel_HiltModules.BindsModule.class,
           ThemeViewModel_HiltModules.BindsModule.class
       }

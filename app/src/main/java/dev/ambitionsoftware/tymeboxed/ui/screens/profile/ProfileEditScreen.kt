@@ -3,9 +3,11 @@ package dev.ambitionsoftware.tymeboxed.ui.screens.profile
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.Settings
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,10 +30,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Nfc
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Search
@@ -39,12 +46,16 @@ import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -74,11 +85,13 @@ import dev.ambitionsoftware.tymeboxed.ui.components.CustomToggle
 import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCard
 import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCardDivider
 import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCardRow
+import dev.ambitionsoftware.tymeboxed.ui.screens.insights.ProfileInsightsScreen
 
 @Composable
 fun ProfileEditScreen(
     profileId: String,
     onBack: () -> Unit,
+    onNavigateToProfile: (String) -> Unit = {},
 ) {
     val vm: ProfileEditViewModel = hiltViewModel()
     val state by vm.state.collectAsState()
@@ -91,145 +104,342 @@ fun ProfileEditScreen(
         if (state.deletedSuccessfully) onBack()
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ProfileIosIconButton(
-                    onClick = onBack,
-                    icon = Icons.Default.Close,
-                    contentDescription = "Close",
-                )
-                ProfileIosIconButton(
-                    onClick = { vm.save() },
-                    enabled = !state.isSaving,
-                    icon = Icons.Default.Check,
-                    contentDescription = if (state.isNew) "Create profile" else "Save profile",
-                )
-            }
-        },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            // Error banner
-            if (state.errorMessage != null) {
-                SettingsCard {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = state.errorMessage!!,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
+    val pendingNavigationProfileId by vm.pendingNavigationProfileId.collectAsState()
+    LaunchedEffect(pendingNavigationProfileId) {
+        val id = pendingNavigationProfileId ?: return@LaunchedEffect
+        onNavigateToProfile(id)
+        vm.consumePendingNavigation()
+    }
+
+    var showInsights by remember { mutableStateOf(false) }
+    var showSessions by remember { mutableStateOf(false) }
+    var showOverflowDeleteConfirm by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            topBar = {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ProfileIosIconButton(
+                        onClick = onBack,
+                        icon = Icons.Default.Close,
+                        contentDescription = "Close",
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    if (!state.isNew && state.profileReady) {
+                        ProfileEditTopActionPill(
+                            onInsights = { showInsights = true },
+                            onDuplicate = { vm.duplicateProfile() },
+                            onViewSessions = { showSessions = true },
+                            onDeleteFromMenu = { showOverflowDeleteConfirm = true },
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    ProfileIosIconButton(
+                        onClick = { vm.save() },
+                        enabled = !state.isSaving,
+                        icon = Icons.Default.Check,
+                        contentDescription = if (state.isNew) "Create profile" else "Save profile",
+                    )
+                }
+            },
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                // Error banner
+                if (state.errorMessage != null) {
+                    SettingsCard {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = state.errorMessage!!,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
                     }
                 }
+
+                Text(
+                    text = if (state.isNew) "Create New Profile" else "Profile Details",
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, bottom = 4.dp),
+                )
+
+                // 1. Name
+                NameSection(
+                    name = state.name,
+                    onNameChange = vm::onNameChange,
+                )
+
+                // 2. Blocked apps
+                AppPickerSection(
+                    isAllowMode = state.isAllowMode,
+                    onAllowModeChange = vm::onAllowModeChange,
+                    selectedPackages = state.blockedPackages,
+                    installedApps = state.installedApps,
+                    onToggleApp = vm::onToggleApp,
+                )
+
+                // 3. Blocked domains
+                DomainSection(
+                    isAllowModeDomains = state.isAllowModeDomains,
+                    onAllowModeDomainsChange = vm::onAllowModeDomainsChange,
+                    domains = state.domains,
+                    onAddDomain = vm::onAddDomain,
+                    onRemoveDomain = vm::onRemoveDomain,
+                )
+
+                // 4. Schedule (UI parity with iOS; scheduling logic TBD)
+                ScheduleSection()
+
+                // 5. Blocking strategy
+                StrategySection(
+                    selectedId = state.strategyId,
+                    onSelect = vm::onStrategyChange,
+                    timerMinutes = state.timerMinutes,
+                    onTimerChange = vm::onTimerMinutesChange,
+                )
+
+                // 6. Breaks
+                BreaksSection(
+                    enableBreaks = state.enableBreaks,
+                    onBreaksChange = vm::onBreaksChange,
+                    breakTimeInMinutes = state.breakTimeInMinutes,
+                    onBreakTimeChange = vm::onBreakTimeChange,
+                )
+
+                // 7. Safeguards
+                SafeguardsSection(
+                    enableStrictMode = state.enableStrictMode,
+                    onStrictModeChange = vm::onStrictModeChange,
+                )
+
+                // 8. Notifications
+                NotificationsSection(
+                    enableLiveActivity = state.enableLiveActivity,
+                    onLiveActivityChange = vm::onLiveActivityChange,
+                    enableReminder = state.enableReminder,
+                    onReminderChange = vm::onReminderChange,
+                    reminderTimeMinutes = state.reminderTimeMinutes,
+                    onReminderTimeChange = vm::onReminderTimeChange,
+                    customReminderMessage = state.customReminderMessage,
+                    onReminderMessageChange = vm::onReminderMessageChange,
+                    onOpenNotificationSettings = {
+                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            putExtra("app_package", context.packageName)
+                            putExtra("app_uid", context.applicationInfo.uid)
+                        }
+                        runCatching { context.startActivity(intent) }
+                    },
+                )
+
+                // Delete (edit mode only)
+                if (!state.isNew) {
+                    DeleteSection(
+                        isDeleting = state.isDeleting,
+                        onDelete = vm::delete,
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(40.dp))
             }
+        }
 
-            Text(
-                text = if (state.isNew) "Create New Profile" else "Profile Details",
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 4.dp),
-            )
-
-            // 1. Name
-            NameSection(
-                name = state.name,
-                onNameChange = vm::onNameChange,
-            )
-
-            // 2. Blocked apps
-            AppPickerSection(
-                isAllowMode = state.isAllowMode,
-                onAllowModeChange = vm::onAllowModeChange,
-                selectedPackages = state.blockedPackages,
-                installedApps = state.installedApps,
-                onToggleApp = vm::onToggleApp,
-            )
-
-            // 3. Blocked domains
-            DomainSection(
-                isAllowModeDomains = state.isAllowModeDomains,
-                onAllowModeDomainsChange = vm::onAllowModeDomainsChange,
-                domains = state.domains,
-                onAddDomain = vm::onAddDomain,
-                onRemoveDomain = vm::onRemoveDomain,
-            )
-
-            // 4. Schedule (UI parity with iOS; scheduling logic TBD)
-            ScheduleSection()
-
-            // 5. Blocking strategy
-            StrategySection(
-                selectedId = state.strategyId,
-                onSelect = vm::onStrategyChange,
-                timerMinutes = state.timerMinutes,
-                onTimerChange = vm::onTimerMinutesChange,
-            )
-
-            // 6. Breaks
-            BreaksSection(
-                enableBreaks = state.enableBreaks,
-                onBreaksChange = vm::onBreaksChange,
-                breakTimeInMinutes = state.breakTimeInMinutes,
-                onBreakTimeChange = vm::onBreakTimeChange,
-            )
-
-            // 7. Safeguards
-            SafeguardsSection(
-                enableStrictMode = state.enableStrictMode,
-                onStrictModeChange = vm::onStrictModeChange,
-            )
-
-            // 8. Notifications
-            NotificationsSection(
-                enableLiveActivity = state.enableLiveActivity,
-                onLiveActivityChange = vm::onLiveActivityChange,
-                enableReminder = state.enableReminder,
-                onReminderChange = vm::onReminderChange,
-                reminderTimeMinutes = state.reminderTimeMinutes,
-                onReminderTimeChange = vm::onReminderTimeChange,
-                customReminderMessage = state.customReminderMessage,
-                onReminderMessageChange = vm::onReminderMessageChange,
-                onOpenNotificationSettings = {
-                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                        putExtra("app_package", context.packageName)
-                        putExtra("app_uid", context.applicationInfo.uid)
-                    }
-                    runCatching { context.startActivity(intent) }
-                },
-            )
-
-            // Delete (edit mode only)
-            if (!state.isNew) {
-                DeleteSection(
-                    isDeleting = state.isDeleting,
-                    onDelete = vm::delete,
+        if (showInsights) {
+            vm.profileForInsights()?.let { p ->
+                ProfileInsightsScreen(
+                    profile = p,
+                    onDismiss = { showInsights = false },
                 )
             }
+        }
 
-            Spacer(modifier = Modifier.height(40.dp))
+        if (showSessions && !state.isNew) {
+            ProfileSessionsScreen(
+                profileId = profileId,
+                profileName = state.name,
+                onDismiss = { showSessions = false },
+            )
+        }
+
+        if (showOverflowDeleteConfirm) {
+            AlertDialog(
+                onDismissRequest = { showOverflowDeleteConfirm = false },
+                title = { Text("Delete Profile") },
+                text = {
+                    Text(
+                        "Are you sure you want to delete this profile? " +
+                            "It will be removed from this device. This cannot be undone.",
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showOverflowDeleteConfirm = false
+                        vm.delete()
+                    }) {
+                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showOverflowDeleteConfirm = false }) {
+                        Text("Cancel")
+                    }
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileEditTopActionPill(
+    onInsights: () -> Unit,
+    onDuplicate: () -> Unit,
+    onViewSessions: () -> Unit,
+    onDeleteFromMenu: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
+    val menuBg = if (isDark) Color(0xEC2C2C2E) else Color(0xF5FAFAFA)
+    val itemColor = if (isDark) Color.White else cs.onSurface
+    val dividerColor = if (isDark) Color.White.copy(alpha = 0.12f) else cs.outline.copy(alpha = 0.35f)
+    val errorColor = MaterialTheme.colorScheme.error
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    Box {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = cs.surface,
+            shadowElevation = 2.dp,
+            border = BorderStroke(1.dp, cs.outline.copy(alpha = 0.22f)),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { menuExpanded = true },
+                    modifier = Modifier.size(44.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreHoriz,
+                        contentDescription = "More options",
+                        tint = cs.onSurface,
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(22.dp)
+                        .background(cs.outline.copy(alpha = 0.28f)),
+                )
+                IconButton(
+                    onClick = onInsights,
+                    modifier = Modifier.size(44.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                        contentDescription = "Insights",
+                        tint = cs.onSurface,
+                    )
+                }
+            }
+        }
+        DropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false },
+            modifier = Modifier.widthIn(min = 260.dp),
+            shape = RoundedCornerShape(18.dp),
+            containerColor = menuBg,
+            shadowElevation = 12.dp,
+            border = BorderStroke(1.dp, cs.outline.copy(alpha = if (isDark) 0.28f else 0.22f)),
+        ) {
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        "Duplicate Profile",
+                        color = itemColor,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.ContentCopy,
+                        contentDescription = null,
+                        tint = itemColor,
+                        modifier = Modifier.size(22.dp),
+                    )
+                },
+                onClick = {
+                    menuExpanded = false
+                    onDuplicate()
+                },
+            )
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        "View Sessions",
+                        color = itemColor,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Outlined.History,
+                        contentDescription = null,
+                        tint = itemColor,
+                        modifier = Modifier.size(22.dp),
+                    )
+                },
+                onClick = {
+                    menuExpanded = false
+                    onViewSessions()
+                },
+            )
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 12.dp),
+                color = dividerColor,
+                thickness = 0.5.dp,
+            )
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        "Delete Profile",
+                        color = errorColor,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = errorColor,
+                        modifier = Modifier.size(22.dp),
+                    )
+                },
+                onClick = {
+                    menuExpanded = false
+                    onDeleteFromMenu()
+                },
+            )
         }
     }
 }

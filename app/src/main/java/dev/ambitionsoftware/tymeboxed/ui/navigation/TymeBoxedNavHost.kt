@@ -82,6 +82,11 @@ fun TymeBoxedNavHost(
             ProfileEditScreen(
                 profileId = profileId,
                 onBack = { navController.popBackStack() },
+                onNavigateToProfile = { newId ->
+                    navController.navigate(Routes.profileEdit(newId)) {
+                        popUpTo(Routes.profileEdit(profileId)) { inclusive = true }
+                    }
+                },
             )
         }
     }

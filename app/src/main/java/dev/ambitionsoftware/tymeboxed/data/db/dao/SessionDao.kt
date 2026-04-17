@@ -20,6 +20,21 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE profileId = :profileId ORDER BY startTime DESC")
     fun observeForProfile(profileId: String): Flow<List<SessionEntity>>
 
+    @Query(
+        """
+        SELECT * FROM sessions
+        WHERE profileId = :profileId
+        AND endTime IS NOT NULL
+        AND startTime >= :startMs AND startTime < :endMs
+        ORDER BY startTime ASC
+        """,
+    )
+    fun observeCompletedSessionsForProfileBetween(
+        profileId: String,
+        startMs: Long,
+        endMs: Long,
+    ): Flow<List<SessionEntity>>
+
     @Query("SELECT * FROM sessions WHERE endTime IS NOT NULL ORDER BY endTime DESC LIMIT 50")
     fun observeRecentCompleted(): Flow<List<SessionEntity>>
 

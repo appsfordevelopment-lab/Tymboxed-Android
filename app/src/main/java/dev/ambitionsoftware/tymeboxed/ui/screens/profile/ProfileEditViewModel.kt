@@ -13,6 +13,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.ambitionsoftware.tymeboxed.domain.model.BlockingStrategyId
 import dev.ambitionsoftware.tymeboxed.domain.model.Profile
 import dev.ambitionsoftware.tymeboxed.data.repository.ProfileRepository
+import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +30,8 @@ data class InstalledApp(
 
 data class ProfileEditUiState(
     val isNew: Boolean = true,
+    /** `true` once an existing profile has been read from the DB (or immediately for new profiles). */
+    val profileReady: Boolean = false,
     val name: String = "",
     val strategyId: String = BlockingStrategyId.DEFAULT,
     val timerMinutes: Int = 25,
@@ -61,10 +64,15 @@ class ProfileEditViewModel @Inject constructor(
     private val profileId: String = savedStateHandle["profileId"] ?: "new"
     private val isNew: Boolean = profileId == "new"
 
-    private val _state = MutableStateFlow(ProfileEditUiState(isNew = isNew))
+    private val _state = MutableStateFlow(
+        ProfileEditUiState(isNew = isNew, profileReady = isNew),
+    )
     val state: StateFlow<ProfileEditUiState> = _state.asStateFlow()
 
     private var loadedProfile: Profile? = null
+
+    private val _pendingNavigationProfileId = MutableStateFlow<String?>(null)
+    val pendingNavigationProfileId: StateFlow<String?> = _pendingNavigationProfileId.asStateFlow()
 
     init {
         loadInstalledApps()
@@ -79,6 +87,7 @@ class ProfileEditViewModel @Inject constructor(
             _state.update {
                 it.copy(
                     isNew = false,
+                    profileReady = true,
                     name = profile.name,
                     strategyId = profile.strategyId,
                     timerMinutes = timerMinutes,
@@ -248,6 +257,76 @@ class ProfileEditViewModel @Inject constructor(
                         isSaving = false,
                         errorMessage = "Failed to save: ${e.localizedMessage}",
                     )
+                }
+            }
+        }
+    }
+
+    /**
+     * Snapshot for the insights overlay (same profile id as on disk; name reflects the text field).
+     */
+    fun profileForInsights(): Profile? {
+        if (isNew) return null
+        val base = loadedProfile ?: return null
+        val s = _state.value
+        return base.copy(name = s.name.trim().ifBlank { base.name })
+    }
+
+    fun consumePendingNavigation() {
+        _pendingNavigationProfileId.value = null
+    }
+
+    fun duplicateProfile() {
+        if (isNew) return
+        val current = _state.value
+        val base = loadedProfile ?: return
+        if (current.name.isBlank()) {
+            _state.update { it.copy(errorMessage = "Profile name is required") }
+            return
+        }
+        if (current.blockedPackages.isEmpty() && current.domains.isEmpty()) {
+            _state.update { it.copy(errorMessage = "Select at least one app or domain") }
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val now = System.currentTimeMillis()
+                val newId = UUID.randomUUID().toString()
+                val copy = base.copy(
+                    id = newId,
+                    name = current.name.trim() + " Copy",
+                    createdAt = now,
+                    updatedAt = now,
+                    strategyId = current.strategyId,
+                    strategyData = if (current.strategyId in listOf(
+                            BlockingStrategyId.FOCUS_TIMER,
+                            BlockingStrategyId.FOCUS_TIMER_BREAK,
+                        )
+                    ) {
+                        current.timerMinutes.toString()
+                    } else {
+                        null
+                    },
+                    enableStrictMode = current.enableStrictMode,
+                    enableBreaks = current.enableBreaks,
+                    breakTimeInMinutes = current.breakTimeInMinutes,
+                    enableLiveActivity = current.enableLiveActivity,
+                    reminderTimeSeconds = if (current.enableReminder) {
+                        current.reminderTimeMinutes * 60
+                    } else {
+                        null
+                    },
+                    customReminderMessage = current.customReminderMessage.ifBlank { null },
+                    isAllowMode = current.isAllowMode,
+                    isAllowModeDomains = current.isAllowModeDomains,
+                    domains = current.domains,
+                    blockedPackages = current.blockedPackages.toList(),
+                )
+                profileRepository.save(copy)
+                _pendingNavigationProfileId.value = newId
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(errorMessage = "Failed to duplicate: ${e.localizedMessage}")
                 }
             }
         }
