@@ -35,4 +35,7 @@ class SessionRepository @Inject constructor(
     suspend fun resetActive() {
         sessionDao.endAllActive(System.currentTimeMillis())
     }
+
+    suspend fun countCompletedForProfile(profileId: String): Int =
+        sessionDao.countCompletedForProfile(profileId)
 }

@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.dp
 fun SettingsCard(
     modifier: Modifier = Modifier,
     title: String? = null,
+    elevation: Dp = 2.dp,
     content: @Composable () -> Unit,
 ) {
     Column(
@@ -57,7 +59,7 @@ fun SettingsCard(
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = elevation),
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -83,7 +85,7 @@ fun SettingsCardDivider(
             .fillMaxWidth()
             .height(1.dp)
             .padding(start = startInset.dp)
-            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+            .background(MaterialTheme.colorScheme.outlineVariant),
     )
 }
 

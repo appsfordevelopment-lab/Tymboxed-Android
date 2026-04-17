@@ -55,7 +55,10 @@ fun TbTheme(
             background = SurfaceDark,
             surface = CardDark,
             onSurface = androidx.compose.ui.graphics.Color.White,
+            onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFF8E8E93),
+            surfaceVariant = androidx.compose.ui.graphics.Color(0xFF3A3A3C),
             outline = BorderDark,
+            outlineVariant = androidx.compose.ui.graphics.Color(0xFF38383A),
         )
     } else {
         lightColorScheme(
@@ -64,7 +67,10 @@ fun TbTheme(
             background = SurfaceLight,
             surface = CardLight,
             onSurface = androidx.compose.ui.graphics.Color.Black,
+            onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFF636366),
+            surfaceVariant = androidx.compose.ui.graphics.Color(0xFFE5E5EA),
             outline = BorderLight,
+            outlineVariant = androidx.compose.ui.graphics.Color(0xFFC6C6C8),
         )
     }
 

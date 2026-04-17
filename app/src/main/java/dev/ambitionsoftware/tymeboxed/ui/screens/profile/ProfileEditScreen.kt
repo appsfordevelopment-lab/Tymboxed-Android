@@ -1,6 +1,8 @@
 package dev.ambitionsoftware.tymeboxed.ui.screens.profile
 
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,19 +18,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Nfc
 import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.TouchApp
@@ -40,8 +44,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -65,7 +68,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import dev.ambitionsoftware.tymeboxed.domain.model.StrategyInfo
-import dev.ambitionsoftware.tymeboxed.domain.model.StrategyTag
 import dev.ambitionsoftware.tymeboxed.domain.model.availableStrategies
 import dev.ambitionsoftware.tymeboxed.ui.components.ActionButton
 import dev.ambitionsoftware.tymeboxed.ui.components.CustomToggle
@@ -80,6 +82,7 @@ fun ProfileEditScreen(
 ) {
     val vm: ProfileEditViewModel = hiltViewModel()
     val state by vm.state.collectAsState()
+    val context = LocalContext.current
 
     LaunchedEffect(state.savedSuccessfully) {
         if (state.savedSuccessfully) onBack()
@@ -94,17 +97,21 @@ fun ProfileEditScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                    .statusBarsPadding()
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                }
-                Text(
-                    text = if (state.isNew) "Create New Profile" else "Profile Details",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onBackground,
+                ProfileIosIconButton(
+                    onClick = onBack,
+                    icon = Icons.Default.Close,
+                    contentDescription = "Close",
+                )
+                ProfileIosIconButton(
+                    onClick = { vm.save() },
+                    enabled = !state.isSaving,
+                    icon = Icons.Default.Check,
+                    contentDescription = if (state.isNew) "Create profile" else "Save profile",
                 )
             }
         },
@@ -135,13 +142,23 @@ fun ProfileEditScreen(
                 }
             }
 
+            Text(
+                text = if (state.isNew) "Create New Profile" else "Profile Details",
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp, bottom = 4.dp),
+            )
+
             // 1. Name
             NameSection(
                 name = state.name,
                 onNameChange = vm::onNameChange,
             )
 
-            // 2. Blocked / Allowed apps
+            // 2. Blocked apps
             AppPickerSection(
                 isAllowMode = state.isAllowMode,
                 onAllowModeChange = vm::onAllowModeChange,
@@ -150,7 +167,7 @@ fun ProfileEditScreen(
                 onToggleApp = vm::onToggleApp,
             )
 
-            // 3. Blocked / Allowed domains
+            // 3. Blocked domains
             DomainSection(
                 isAllowModeDomains = state.isAllowModeDomains,
                 onAllowModeDomainsChange = vm::onAllowModeDomainsChange,
@@ -159,7 +176,10 @@ fun ProfileEditScreen(
                 onRemoveDomain = vm::onRemoveDomain,
             )
 
-            // 4. Blocking strategy
+            // 4. Schedule (UI parity with iOS; scheduling logic TBD)
+            ScheduleSection()
+
+            // 5. Blocking strategy
             StrategySection(
                 selectedId = state.strategyId,
                 onSelect = vm::onStrategyChange,
@@ -167,7 +187,7 @@ fun ProfileEditScreen(
                 onTimerChange = vm::onTimerMinutesChange,
             )
 
-            // 5. Breaks
+            // 6. Breaks
             BreaksSection(
                 enableBreaks = state.enableBreaks,
                 onBreaksChange = vm::onBreaksChange,
@@ -175,13 +195,13 @@ fun ProfileEditScreen(
                 onBreakTimeChange = vm::onBreakTimeChange,
             )
 
-            // 6. Safeguards
+            // 7. Safeguards
             SafeguardsSection(
                 enableStrictMode = state.enableStrictMode,
                 onStrictModeChange = vm::onStrictModeChange,
             )
 
-            // 7. Notifications
+            // 8. Notifications
             NotificationsSection(
                 enableLiveActivity = state.enableLiveActivity,
                 onLiveActivityChange = vm::onLiveActivityChange,
@@ -191,14 +211,14 @@ fun ProfileEditScreen(
                 onReminderTimeChange = vm::onReminderTimeChange,
                 customReminderMessage = state.customReminderMessage,
                 onReminderMessageChange = vm::onReminderMessageChange,
-            )
-
-            // Save button
-            ActionButton(
-                title = if (state.isNew) "Create Profile" else "Save Changes",
-                onClick = vm::save,
-                icon = Icons.Default.Save,
-                isLoading = state.isSaving,
+                onOpenNotificationSettings = {
+                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        putExtra("app_package", context.packageName)
+                        putExtra("app_uid", context.applicationInfo.uid)
+                    }
+                    runCatching { context.startActivity(intent) }
+                },
             )
 
             // Delete (edit mode only)
@@ -214,6 +234,34 @@ fun ProfileEditScreen(
     }
 }
 
+@Composable
+private fun ProfileIosIconButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    icon: ImageVector,
+    contentDescription: String,
+) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = if (enabled) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            },
+        )
+    }
+}
+
 // ─── Name ────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -221,7 +269,7 @@ private fun NameSection(
     name: String,
     onNameChange: (String) -> Unit,
 ) {
-    SettingsCard(title = "Name") {
+    SettingsCard(title = "Name", elevation = 0.dp) {
         SettingsCardRow {
             OutlinedTextField(
                 value = name,
@@ -236,8 +284,14 @@ private fun NameSection(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    cursorColor = MaterialTheme.colorScheme.primary,
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
                 ),
             )
         }
@@ -263,7 +317,7 @@ private fun StrategySection(
 ) {
     val visible = availableStrategies.filter { !it.hidden }
 
-    SettingsCard(title = "Blocking Strategy") {
+    SettingsCard(title = "Blocking Strategy", elevation = 0.dp) {
         visible.forEachIndexed { index, strategy ->
             StrategyRow(
                 strategy = strategy,
@@ -322,6 +376,10 @@ private fun StrategyRow(
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
+    val accent = MaterialTheme.colorScheme.primary
+    val pillBg = MaterialTheme.colorScheme.surfaceVariant
+    val outline = MaterialTheme.colorScheme.outlineVariant
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -329,32 +387,22 @@ private fun StrategyRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        RadioButton(
-            selected = isSelected,
-            onClick = onClick,
-            colors = RadioButtonDefaults.colors(
-                selectedColor = strategy.color,
-            ),
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-
-        // Strategy icon with color badge
         Box(
             modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(strategy.color.copy(alpha = 0.15f)),
+                .background(pillBg),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = strategyIcon(strategy.icon),
                 contentDescription = null,
-                tint = strategy.color,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp),
             )
         }
 
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(
             modifier = Modifier.weight(1f),
@@ -363,31 +411,54 @@ private fun StrategyRow(
             Text(
                 text = strategy.name,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                color = if (isSelected) strategy.color
-                else MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isSelected) accent else MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = strategy.description,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
+                maxLines = 3,
             )
-            // Tag capsules
             if (strategy.tags.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     strategy.tags.forEach { tag ->
                         Text(
                             text = tag.label,
                             style = MaterialTheme.typography.labelSmall,
-                            color = strategy.color,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(strategy.color.copy(alpha = 0.1f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(pillBg)
+                                .padding(horizontal = 8.dp, vertical = 3.dp),
                         )
                     }
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Box(
+            modifier = Modifier
+                .padding(top = 4.dp)
+                .size(24.dp)
+                .clip(CircleShape)
+                .border(
+                    width = if (isSelected) 0.dp else 2.dp,
+                    color = if (isSelected) Color.Transparent else outline,
+                    shape = CircleShape,
+                )
+                .background(if (isSelected) accent else Color.Transparent),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = Color.Black,
+                    modifier = Modifier.size(16.dp),
+                )
             }
         }
     }
@@ -405,12 +476,9 @@ private fun AppPickerSection(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
-
-    val sectionTitle = (if (isAllowMode) "Allowed" else "Blocked") + " Apps"
     val selectedCount = selectedPackages.size
 
-    SettingsCard(title = sectionTitle) {
-        // App selector summary + expand
+    SettingsCard(title = "Blocked Apps", elevation = 0.dp) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -418,51 +486,68 @@ private fun AppPickerSection(
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Select Apps to Restrict",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        SettingsCardDivider()
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        ) {
+            if (selectedCount == 0) {
+                Text(
+                    text = "No apps selected",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
                 Text(
                     text = "$selectedCount app${if (selectedCount != 1) "s" else ""} selected",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                if (!expanded && selectedCount > 0) {
-                    val preview = installedApps
-                        .filter { selectedPackages.contains(it.packageName) }
-                        .take(3)
-                        .joinToString(", ") { it.label }
-                    val suffix = if (selectedCount > 3) " +${selectedCount - 3} more" else ""
-                    Text(
-                        text = preview + suffix,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                val preview = installedApps
+                    .filter { selectedPackages.contains(it.packageName) }
+                    .take(3)
+                    .joinToString(", ") { it.label }
+                val suffix = if (selectedCount > 3) " +${selectedCount - 3} more" else ""
+                Text(
+                    text = preview + suffix,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
-            Text(
-                text = if (expanded) "Done" else "Choose",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary,
+        }
+
+        SettingsCardDivider()
+
+        SettingsCardRow {
+            CustomToggle(
+                title = "Apps Allow Mode",
+                description = "Pick apps to allow and block everything else. This will erase any other selection you've made.",
+                checked = isAllowMode,
+                onCheckedChange = onAllowModeChange,
             )
         }
 
         if (expanded) {
             SettingsCardDivider()
-
-            // Allow mode toggle
-            SettingsCardRow {
-                CustomToggle(
-                    title = "Apps Allow Mode",
-                    description = "Pick apps to allow and block everything else. This will erase any other selection you've made.",
-                    checked = isAllowMode,
-                    onCheckedChange = onAllowModeChange,
-                )
-            }
-
-            SettingsCardDivider()
-
-            // Search
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -483,13 +568,17 @@ private fun AppPickerSection(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        cursorColor = MaterialTheme.colorScheme.primary,
                     ),
                 )
             }
 
-            // App list
             val filtered = if (searchQuery.isBlank()) installedApps
             else installedApps.filter {
                 it.label.contains(searchQuery, ignoreCase = true) ||
@@ -599,66 +688,63 @@ private fun DomainSection(
     onRemoveDomain: (String) -> Unit,
 ) {
     var newDomain by remember { mutableStateOf("") }
+    var expanded by remember { mutableStateOf(false) }
 
-    val sectionTitle = (if (isAllowModeDomains) "Allowed" else "Blocked") + " Domains"
-
-    SettingsCard(title = sectionTitle) {
-        // Domain chips
-        if (domains.isNotEmpty()) {
-            FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                domains.forEach { domain ->
-                    DomainChip(
-                        domain = domain,
-                        onRemove = { onRemoveDomain(domain) },
-                    )
-                }
-            }
-            SettingsCardDivider()
+    SettingsCard(title = "Blocked Domains", elevation = 0.dp) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Select Domains to Restrict",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
-        // Add domain input
-        SettingsCardRow {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                OutlinedTextField(
-                    value = newDomain,
-                    onValueChange = { newDomain = it },
-                    placeholder = { Text("example.com") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                    ),
+        SettingsCardDivider()
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        ) {
+            if (domains.isEmpty()) {
+                Text(
+                    text = "No domains selected",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                IconButton(
-                    onClick = {
-                        onAddDomain(newDomain)
-                        newDomain = ""
-                    },
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Add domain",
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
+            } else {
+                Text(
+                    text = "${domains.size} domain${if (domains.size != 1) "s" else ""} selected",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = domains.take(4).joinToString(", ") +
+                        if (domains.size > 4) " +${domains.size - 4} more" else "",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
         }
 
         SettingsCardDivider()
 
-        // Allow mode toggle
         SettingsCardRow {
             CustomToggle(
                 title = "Domain Allow Mode",
@@ -666,6 +752,64 @@ private fun DomainSection(
                 checked = isAllowModeDomains,
                 onCheckedChange = onAllowModeDomainsChange,
             )
+        }
+
+        if (expanded) {
+            SettingsCardDivider()
+            if (domains.isNotEmpty()) {
+                FlowRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    domains.forEach { domain ->
+                        DomainChip(
+                            domain = domain,
+                            onRemove = { onRemoveDomain(domain) },
+                        )
+                    }
+                }
+                SettingsCardDivider()
+            }
+            SettingsCardRow {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedTextField(
+                        value = newDomain,
+                        onValueChange = { newDomain = it },
+                        placeholder = { Text("example.com") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            cursorColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = {
+                            onAddDomain(newDomain)
+                            newDomain = ""
+                        },
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Add domain",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -706,6 +850,40 @@ private fun DomainChip(
     }
 }
 
+// ─── Schedule (UI parity with iOS; scheduling logic not yet on Android) ────
+
+@Composable
+private fun ScheduleSection() {
+    SettingsCard(title = "Schedule", elevation = 0.dp) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Set schedule",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        SettingsCardDivider()
+        Text(
+            text = "No Schedule Set",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+        )
+    }
+}
+
 // ─── Breaks ──────────────────────────────────────────────────────────────────
 
 private val breakOptions = listOf(5, 10, 15, 30)
@@ -717,7 +895,7 @@ private fun BreaksSection(
     breakTimeInMinutes: Int,
     onBreakTimeChange: (Int) -> Unit,
 ) {
-    SettingsCard(title = "Breaks") {
+    SettingsCard(title = "Breaks", elevation = 0.dp) {
         SettingsCardRow {
             CustomToggle(
                 title = "Allow Timed Breaks",
@@ -754,7 +932,9 @@ private fun BreaksSection(
                                         if (selected) MaterialTheme.colorScheme.primary.copy(
                                             alpha = 0.12f,
                                         )
-                                        else MaterialTheme.colorScheme.surface,
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(
+                                            alpha = 0.35f,
+                                        ),
                                     )
                                     .clickable { onBreakTimeChange(minutes) }
                                     .padding(horizontal = 12.dp, vertical = 6.dp),
@@ -774,7 +954,7 @@ private fun SafeguardsSection(
     enableStrictMode: Boolean,
     onStrictModeChange: (Boolean) -> Unit,
 ) {
-    SettingsCard(title = "Safeguards") {
+    SettingsCard(title = "Safeguards", elevation = 0.dp) {
         SettingsCardRow {
             CustomToggle(
                 title = "Strict",
@@ -798,12 +978,13 @@ private fun NotificationsSection(
     onReminderTimeChange: (Int) -> Unit,
     customReminderMessage: String,
     onReminderMessageChange: (String) -> Unit,
+    onOpenNotificationSettings: () -> Unit,
 ) {
-    SettingsCard(title = "Notifications") {
+    SettingsCard(title = "Notifications", elevation = 0.dp) {
         SettingsCardRow {
             CustomToggle(
                 title = "Live Activity",
-                description = "Shows a persistent notification with an inspirational quote while blocking.",
+                description = "Shows a live activity on your lock screen with some inspirational quote.",
                 checked = enableLiveActivity,
                 onCheckedChange = onLiveActivityChange,
             )
@@ -814,7 +995,7 @@ private fun NotificationsSection(
         SettingsCardRow {
             CustomToggle(
                 title = "Reminder",
-                description = "Sends a reminder to start this profile when its session ends.",
+                description = "Sends a reminder to start this profile when its ended.",
                 checked = enableReminder,
                 onCheckedChange = onReminderChange,
             )
@@ -892,6 +1073,19 @@ private fun NotificationsSection(
                 }
             }
         }
+
+        SettingsCardDivider()
+
+        Text(
+            text = "Go to settings to disable globally.",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpenNotificationSettings)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        )
     }
 }
 

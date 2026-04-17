@@ -35,4 +35,9 @@ interface SessionDao {
 
     @Query("DELETE FROM sessions")
     suspend fun deleteAll()
+
+    @Query(
+        "SELECT COUNT(*) FROM sessions WHERE profileId = :profileId AND endTime IS NOT NULL",
+    )
+    suspend fun countCompletedForProfile(profileId: String): Int
 }

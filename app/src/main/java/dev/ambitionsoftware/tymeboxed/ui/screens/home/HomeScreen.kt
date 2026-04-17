@@ -1,8 +1,13 @@
+@file:OptIn(ExperimentalFoundationApi::class)
+
 package dev.ambitionsoftware.tymeboxed.ui.screens.home
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,21 +22,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.outlined.HourglassEmpty
-import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Nfc
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
@@ -42,6 +48,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -59,6 +66,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -79,11 +88,14 @@ import dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel
 import dev.ambitionsoftware.tymeboxed.service.ActiveBlockingState
 import dev.ambitionsoftware.tymeboxed.service.SessionBlockerService
 import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCard
+import dev.ambitionsoftware.tymeboxed.ui.theme.LocalAccentColor
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -105,7 +117,17 @@ class HomeViewModel @Inject constructor(
         initialValue = null,
     )
 
+    private val _sessionCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val sessionCounts: StateFlow<Map<String, Int>> = _sessionCounts.asStateFlow()
+
     init {
+        viewModelScope.launch {
+            profileRepository.observeAll().collect { list ->
+                _sessionCounts.value = list.associate { profile ->
+                    profile.id to sessionRepository.countCompletedForProfile(profile.id)
+                }
+            }
+        }
         // Rehydrate blocking state if the app was killed while a session was active.
         viewModelScope.launch {
             val session = sessionRepository.findActive() ?: return@launch
@@ -195,6 +217,7 @@ fun HomeScreen(
     val permissionsVm: PermissionsViewModel = hiltViewModel()
     val profiles by vm.profiles.collectAsState()
     val activeSession by vm.activeSession.collectAsState()
+    val sessionCounts by vm.sessionCounts.collectAsState()
     val allGranted by permissionsVm.allRequiredGranted.collectAsState()
 
     // Re-check permissions whenever Home regains focus (e.g. user came back
@@ -290,13 +313,18 @@ fun HomeScreen(
                 if (profiles.isEmpty()) {
                     WelcomeEmptyCard(onTap = onCreateProfile)
                 } else {
-                    ProfileList(
-                        profiles = profiles,
-                        activeSession = activeSession,
-                        onEditProfile = onEditProfile,
-                        onStartSession = { vm.startSession(it) },
-                        onStopSession = { vm.stopSession() },
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                        ActivitySection(onManage = { /* future: activity analytics */ })
+                        ProfileRegionHeader(onManage = onCreateProfile)
+                        ProfileList(
+                            profiles = profiles,
+                            activeSession = activeSession,
+                            sessionCounts = sessionCounts,
+                            onEditProfile = onEditProfile,
+                            onStartSession = { vm.startSession(it) },
+                            onStopSession = { vm.stopSession() },
+                        )
+                    }
                 }
             }
 
@@ -453,23 +481,179 @@ private fun WelcomeEmptyCard(onTap: () -> Unit) {
 }
 
 @Composable
+private fun ActivitySection(onManage: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = "Activity",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = cs.onSurfaceVariant,
+            )
+            ManagePill(
+                icon = Icons.Default.ShowChart,
+                onClick = onManage,
+            )
+        }
+        ActivityHeatmapCard()
+    }
+}
+
+@Composable
+private fun ProfileRegionHeader(onManage: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = "Profile",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = cs.onSurfaceVariant,
+        )
+        ManagePill(
+            icon = Icons.Default.Person,
+            onClick = onManage,
+        )
+    }
+}
+
+@Composable
+private fun ManagePill(
+    icon: ImageVector,
+    onClick: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    OutlinedButton(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        border = BorderStroke(1.dp, cs.outline.copy(alpha = 0.55f)),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color.Transparent,
+            contentColor = cs.onSurface,
+        ),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = "Manage",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+@Composable
+private fun ActivityHeatmapCard() {
+    val cs = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
+    val cardShape = RoundedCornerShape(22.dp)
+    val cellShape = RoundedCornerShape(6.dp)
+    val legendColors = listOf(
+        Color(0xFF3A3A3C),
+        Color(0xFF8B7355),
+        Color(0xFFC4A77D),
+        Color(0xFFE8D4B8),
+    )
+    val legendLabels = listOf("<1h", "1–3h", "3–5h", ">5h")
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(cardShape)
+            .border(1.dp, cs.outline.copy(alpha = 0.45f), cardShape)
+            .background(if (isDark) cs.surface else cs.surface)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            legendColors.forEachIndexed { i, c ->
+                if (i > 0) Spacer(modifier = Modifier.width(6.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(c),
+                    )
+                    Text(
+                        text = legendLabels[i],
+                        style = MaterialTheme.typography.labelSmall,
+                        color = cs.onSurfaceVariant,
+                        fontSize = 8.sp,
+                    )
+                }
+            }
+        }
+        val startDay = 21
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            repeat(7) { col ->
+                Text(
+                    text = "${startDay + col}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = cs.onSurface,
+                    modifier = Modifier.widthIn(min = 28.dp),
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+        repeat(5) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                repeat(7) {
+                    Box(
+                        modifier = Modifier
+                            .size(width = 28.dp, height = 22.dp)
+                            .clip(cellShape)
+                            .background(cs.surfaceVariant.copy(alpha = if (isDark) 0.55f else 0.85f)),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ProfileList(
     profiles: List<Profile>,
     activeSession: Session?,
+    sessionCounts: Map<String, Int>,
     onEditProfile: (String) -> Unit,
     onStartSession: (String) -> Unit,
     onStopSession: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         profiles.forEach { profile ->
             val isActive = activeSession?.profileId == profile.id
             val anotherSessionActive = activeSession != null && !isActive
             ProfileCard(
                 profile = profile,
+                sessionCount = sessionCounts[profile.id] ?: 0,
                 isActive = isActive,
                 anotherSessionActive = anotherSessionActive,
                 activeSession = if (isActive) activeSession else null,
-                onClick = { onEditProfile(profile.id) },
+                onEdit = { onEditProfile(profile.id) },
                 onStart = { onStartSession(profile.id) },
                 onStop = onStopSession,
             )
@@ -480,128 +664,255 @@ private fun ProfileList(
 @Composable
 private fun ProfileCard(
     profile: Profile,
+    sessionCount: Int,
     isActive: Boolean,
     anotherSessionActive: Boolean,
     activeSession: Session?,
-    onClick: () -> Unit,
+    onEdit: () -> Unit,
     onStart: () -> Unit,
     onStop: () -> Unit,
 ) {
     val strategy = strategyInfoById(profile.strategyId)
-    val strategyColor = strategy?.color ?: MaterialTheme.colorScheme.primary
+    val accent = LocalAccentColor.current.value
+    val cs = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
+    val cardShape = RoundedCornerShape(24.dp)
+    val strategyIcon = when (strategy?.icon) {
+        "nfc" -> Icons.Default.Nfc
+        "timer" -> Icons.Default.Timer
+        "pause" -> Icons.Default.Pause
+        else -> Icons.Default.Nfc
+    }
+    val strategyTitle = strategy?.name ?: "Tyme Boxed"
 
-    SettingsCard {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(cardShape)
+            .border(1.dp, cs.outline.copy(alpha = 0.45f), cardShape),
+    ) {
+        BoxWithConstraints(modifier = Modifier.matchParentSize()) {
+            val w = constraints.maxWidth.toFloat()
+            val h = constraints.maxHeight.toFloat()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(cs.surface),
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                accent.copy(alpha = if (isDark) 0.42f else 0.28f),
+                                accent.copy(alpha = if (isDark) 0.12f else 0.08f),
+                                Color.Transparent,
+                            ),
+                            center = Offset(w * 0.92f, h * 0.35f),
+                            radius = w * 0.85f,
+                        ),
+                    ),
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onClick() }
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Profile name
-            Text(
-                text = profile.name.ifBlank { "Unnamed Profile" },
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = profile.name.ifBlank { "Unnamed Profile" },
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = cs.onSurface,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onEdit() },
+                )
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .border(1.dp, cs.outline.copy(alpha = 0.4f), CircleShape)
+                        .background(cs.surface.copy(alpha = 0.6f))
+                        .clickable { onEdit() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreHoriz,
+                        contentDescription = "Profile options",
+                        tint = cs.onSurface,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
 
-            // Strategy badge row
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // Strategy chip
-                Row(
+                Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(strategyColor.copy(alpha = 0.12f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    val icon = when (strategy?.icon) {
-                        "nfc" -> Icons.Default.Nfc
-                        "timer" -> Icons.Default.Timer
-                        "pause" -> Icons.Default.Pause
-                        else -> Icons.Default.Nfc
-                    }
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = strategyColor,
-                        modifier = Modifier.size(14.dp),
-                    )
-                    Text(
-                        text = strategy?.name ?: "Unknown",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = strategyColor,
-                    )
-                }
-
-                // Feature indicator icons
-                if (profile.enableLiveActivity) {
-                    FeatureIcon(Icons.Default.Notifications, "Live Activity")
-                }
-                if (profile.reminderTimeSeconds != null) {
-                    FeatureIcon(Icons.Default.Timer, "Reminder")
-                }
-                if (profile.enableBreaks) {
-                    FeatureIcon(Icons.Default.Pause, "Breaks")
-                }
-                if (profile.enableStrictMode) {
-                    FeatureIcon(Icons.Default.Security, "Strict")
-                }
-            }
-
-            // Stats row
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                StatItem(
-                    icon = Icons.Default.Apps,
-                    count = profile.blockedPackages.size,
-                    label = "apps",
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(cs.onSurface),
                 )
-                if (profile.domains.isNotEmpty()) {
-                    StatItem(
-                        icon = Icons.Default.Language,
-                        count = profile.domains.size,
-                        label = "domains",
-                    )
-                }
+                Text(
+                    text = if (profile.enableStrictMode) "Strict" else "Standard",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onSurfaceVariant,
+                )
             }
 
-            // Start / Stop button — matches iOS ProfileTimerButton
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(accent.copy(alpha = 0.22f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = strategyIcon,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Text(
+                    text = strategyTitle,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = cs.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                VerticalDivider(
+                    modifier = Modifier.height(28.dp),
+                    color = cs.outlineVariant,
+                )
+                Text(
+                    text = "No Schedule Set",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                ProfileStatColumn(
+                    label = "Apps & Categories",
+                    value = profile.blockedPackages.size,
+                )
+                ProfileStatColumn(
+                    label = "Domains",
+                    value = profile.domains.size,
+                )
+                ProfileStatColumn(
+                    label = "Total Sessions",
+                    value = sessionCount,
+                )
+            }
+
             if (isActive && activeSession != null) {
                 ActiveSessionRow(
                     startTime = activeSession.startTime,
                     onStop = onStop,
                 )
             } else {
-                Button(
-                    onClick = onStart,
+                HoldToStartBar(
                     enabled = !anotherSessionActive,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                        disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                        disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Icon(
-                        Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.size(6.dp))
-                    Text("Start Session")
-                }
+                    onHoldComplete = onStart,
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun ProfileStatColumn(
+    label: String,
+    value: Int,
+) {
+    val cs = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier.widthIn(min = 92.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = cs.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = value.toString(),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = cs.onSurface,
+        )
+    }
+}
+
+@Composable
+private fun HoldToStartBar(
+    enabled: Boolean,
+    onHoldComplete: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val bg = if (enabled) {
+        cs.surfaceVariant.copy(alpha = 0.85f)
+    } else {
+        cs.surfaceVariant.copy(alpha = 0.45f)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(50))
+            .background(bg)
+            .then(
+                if (enabled) {
+                    Modifier.combinedClickable(
+                        onClick = { },
+                        onLongClick = { onHoldComplete() },
+                        onLongClickLabel = "Start blocking session",
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .padding(vertical = 14.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Default.PlayArrow,
+            contentDescription = null,
+            tint = if (enabled) cs.onSurface else cs.onSurface.copy(alpha = 0.38f),
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "Hold to Start",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = if (enabled) cs.onSurface else cs.onSurface.copy(alpha = 0.38f),
+        )
     }
 }
 
@@ -666,32 +977,3 @@ private fun ActiveSessionRow(
     }
 }
 
-@Composable
-private fun FeatureIcon(icon: ImageVector, description: String) {
-    Icon(
-        imageVector = icon,
-        contentDescription = description,
-        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.size(16.dp),
-    )
-}
-
-@Composable
-private fun StatItem(icon: ImageVector, count: Int, label: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(14.dp),
-        )
-        Text(
-            text = "$count $label",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
