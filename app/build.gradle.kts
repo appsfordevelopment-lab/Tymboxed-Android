@@ -19,6 +19,12 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+
+        buildConfigField(
+            "String",
+            "TYMEBOXED_API_BASE_URL",
+            "\"https://api.tymeboxed.app\"",
+        )
     }
 
     buildTypes {

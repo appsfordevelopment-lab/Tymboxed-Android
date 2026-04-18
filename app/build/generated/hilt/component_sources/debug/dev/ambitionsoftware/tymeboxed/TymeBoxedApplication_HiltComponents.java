@@ -50,6 +50,7 @@ import dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel_HiltModul
 import dev.ambitionsoftware.tymeboxed.service.BootCompletedReceiver_GeneratedInjector;
 import dev.ambitionsoftware.tymeboxed.ui.screens.home.HomeViewModel_HiltModules;
 import dev.ambitionsoftware.tymeboxed.ui.screens.insights.ProfileInsightsViewModel_HiltModules;
+import dev.ambitionsoftware.tymeboxed.ui.screens.intro.IntroAuthViewModel_HiltModules;
 import dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileEditViewModel_HiltModules;
 import dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileSessionsViewModel_HiltModules;
 import dev.ambitionsoftware.tymeboxed.ui.screens.settings.SettingsViewModel_HiltModules;
@@ -166,6 +167,7 @@ public final class TymeBoxedApplication_HiltComponents {
           HiltWrapper_ActivityRetainedComponentManager_LifecycleModule.class,
           HiltWrapper_SavedStateHandleModule.class,
           HomeViewModel_HiltModules.KeyModule.class,
+          IntroAuthViewModel_HiltModules.KeyModule.class,
           PermissionsViewModel_HiltModules.KeyModule.class,
           ProfileEditViewModel_HiltModules.KeyModule.class,
           ProfileInsightsViewModel_HiltModules.KeyModule.class,
@@ -211,6 +213,7 @@ public final class TymeBoxedApplication_HiltComponents {
       modules = {
           HiltWrapper_HiltViewModelFactory_ViewModelModule.class,
           HomeViewModel_HiltModules.BindsModule.class,
+          IntroAuthViewModel_HiltModules.BindsModule.class,
           PermissionsViewModel_HiltModules.BindsModule.class,
           ProfileEditViewModel_HiltModules.BindsModule.class,
           ProfileInsightsViewModel_HiltModules.BindsModule.class,

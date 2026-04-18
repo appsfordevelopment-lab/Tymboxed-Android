@@ -112,6 +112,7 @@ fun IntroScreen(
     var step by rememberSaveable { mutableIntStateOf(0) }
     var signInEmail by rememberSaveable { mutableStateOf("") }
     val vm: PermissionsViewModel = hiltViewModel()
+    val authVm: IntroAuthViewModel = hiltViewModel()
     val scope = rememberCoroutineScope()
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -126,6 +127,7 @@ fun IntroScreen(
     when (step) {
         0 -> WelcomeStep(onContinue = { step = 1 })
         1 -> LoginStep(
+            authVm = authVm,
             onBack = { step = 0 },
             onLoginSuccess = { email ->
                 signInEmail = email.trim()
@@ -134,6 +136,7 @@ fun IntroScreen(
         )
         2 -> OtpStep(
             email = signInEmail,
+            authVm = authVm,
             onBack = { step = 1 },
             onVerified = { step = 3 },
         )
@@ -358,11 +361,13 @@ private fun IntroLegalFooter(
 
 @Composable
 private fun LoginStep(
+    authVm: IntroAuthViewModel,
     onBack: () -> Unit,
     onLoginSuccess: (String) -> Unit,
 ) {
     var email by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var errorText by rememberSaveable { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val emailOk = remember(email) { isValidEmail(email) }
     val fieldShape = RoundedCornerShape(16.dp)
@@ -425,7 +430,10 @@ private fun LoginStep(
             )
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = {
+                    email = it
+                    errorText = null
+                },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
                     Text(
@@ -463,14 +471,28 @@ private fun LoginStep(
                 .padding(bottom = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            errorText?.let { err ->
+                Text(
+                    text = err,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                )
+            }
             Button(
                 onClick = {
                     if (!emailOk || busy) return@Button
                     busy = true
+                    errorText = null
                     scope.launch {
-                        delay(400)
+                        authVm.requestOtp(email).fold(
+                            onSuccess = { onLoginSuccess(email) },
+                            onFailure = { errorText = it.message ?: "Something went wrong" },
+                        )
                         busy = false
-                        onLoginSuccess(email)
                     }
                 },
                 enabled = emailOk && !busy,
@@ -567,11 +589,13 @@ private fun LoginStep(
 @Composable
 private fun OtpStep(
     email: String,
+    authVm: IntroAuthViewModel,
     onBack: () -> Unit,
     onVerified: () -> Unit,
 ) {
     var otp by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var errorText by rememberSaveable { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
@@ -670,6 +694,7 @@ private fun OtpStep(
                     value = otp,
                     onValueChange = { raw ->
                         otp = raw.filter { it.isDigit() }.take(OtpLength)
+                        errorText = null
                     },
                     modifier = Modifier
                         .fillMaxSize()
@@ -707,14 +732,28 @@ private fun OtpStep(
                 .padding(bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            errorText?.let { err ->
+                Text(
+                    text = err,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                )
+            }
             Button(
                 onClick = {
                     if (!otpComplete || busy) return@Button
                     busy = true
+                    errorText = null
                     scope.launch {
-                        delay(400)
+                        authVm.confirmOtp(email, otp).fold(
+                            onSuccess = { onVerified() },
+                            onFailure = { errorText = it.message ?: "Something went wrong" },
+                        )
                         busy = false
-                        onVerified()
                     }
                 },
                 enabled = otpComplete && !busy,
