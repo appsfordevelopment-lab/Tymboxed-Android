@@ -17,6 +17,9 @@ object ActiveBlockingState {
         val profileId: String? = null,
         val blockedPackages: Set<String> = emptySet(),
         val isAllowMode: Boolean = false,
+        /** Normalized hostnames from the active profile (see [DomainBlocking.normalize]). */
+        val domains: Set<String> = emptySet(),
+        val isAllowModeDomains: Boolean = false,
     )
 
     @Volatile
@@ -41,12 +44,20 @@ object ActiveBlockingState {
         profileId: String,
         blockedPackages: Set<String>,
         isAllowMode: Boolean,
+        domains: List<String> = emptyList(),
+        isAllowModeDomains: Boolean = false,
     ) {
+        val normalizedDomains = domains
+            .map { it.trim() }
+            .mapNotNull { DomainBlocking.normalize(it) }
+            .toSet()
         current = Snapshot(
             isBlocking = true,
             profileId = profileId,
             blockedPackages = blockedPackages,
             isAllowMode = isAllowMode,
+            domains = normalizedDomains,
+            isAllowModeDomains = isAllowModeDomains,
         )
     }
 
@@ -95,6 +106,27 @@ object ActiveBlockingState {
             packageName !in snap.blockedPackages
         } else {
             packageName in snap.blockedPackages
+        }
+    }
+
+    /** True when the profile has at least one domain rule to enforce in browsers. */
+    fun hasDomainRules(): Boolean = current.isBlocking && current.domains.isNotEmpty()
+
+    /**
+     * Whether the given [host] (from a browser URL bar) should be blocked.
+     *
+     * - Block mode: block when [host] matches any listed domain (including subdomains).
+     * - Allow mode: block when [host] does **not** match any listed domain.
+     */
+    fun shouldBlockDomain(host: String): Boolean {
+        val snap = current
+        if (!snap.isBlocking || snap.domains.isEmpty()) return false
+        val normalizedHost = DomainBlocking.normalize(host) ?: return false
+        val matchesRule = snap.domains.any { DomainBlocking.matches(normalizedHost, it) }
+        return if (snap.isAllowModeDomains) {
+            !matchesRule
+        } else {
+            matchesRule
         }
     }
 }

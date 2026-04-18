@@ -421,40 +421,40 @@ public final class DaggerTymeBoxedApplication_HiltComponents_SingletonC {
 
     @IdentifierNameString
     private static final class LazyClassKeyProvider {
-      static String dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.insights.ProfileInsightsViewModel";
-
-      static String dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel = "dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel";
-
-      static String dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileSessionsViewModel";
-
-      static String dev_ambitionsoftware_tymeboxed_ui_screens_settings_SettingsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.settings.SettingsViewModel";
+      static String dev_ambitionsoftware_tymeboxed_ui_screens_home_HomeViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.home.HomeViewModel";
 
       static String dev_ambitionsoftware_tymeboxed_ui_theme_ThemeViewModel = "dev.ambitionsoftware.tymeboxed.ui.theme.ThemeViewModel";
 
-      static String dev_ambitionsoftware_tymeboxed_ui_screens_home_HomeViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.home.HomeViewModel";
+      static String dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel = "dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel";
 
       static String dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileEditViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileEditViewModel";
 
-      @KeepFieldType
-      ProfileInsightsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel2;
+      static String dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileSessionsViewModel";
 
-      @KeepFieldType
-      PermissionsViewModel dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel2;
+      static String dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.insights.ProfileInsightsViewModel";
 
-      @KeepFieldType
-      ProfileSessionsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel2;
-
-      @KeepFieldType
-      SettingsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_settings_SettingsViewModel2;
-
-      @KeepFieldType
-      ThemeViewModel dev_ambitionsoftware_tymeboxed_ui_theme_ThemeViewModel2;
+      static String dev_ambitionsoftware_tymeboxed_ui_screens_settings_SettingsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.settings.SettingsViewModel";
 
       @KeepFieldType
       HomeViewModel dev_ambitionsoftware_tymeboxed_ui_screens_home_HomeViewModel2;
 
       @KeepFieldType
+      ThemeViewModel dev_ambitionsoftware_tymeboxed_ui_theme_ThemeViewModel2;
+
+      @KeepFieldType
+      PermissionsViewModel dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel2;
+
+      @KeepFieldType
       ProfileEditViewModel dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileEditViewModel2;
+
+      @KeepFieldType
+      ProfileSessionsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel2;
+
+      @KeepFieldType
+      ProfileInsightsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel2;
+
+      @KeepFieldType
+      SettingsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_settings_SettingsViewModel2;
     }
   }
 
@@ -517,38 +517,38 @@ public final class DaggerTymeBoxedApplication_HiltComponents_SingletonC {
     private static final class LazyClassKeyProvider {
       static String dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileEditViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileEditViewModel";
 
-      static String dev_ambitionsoftware_tymeboxed_ui_screens_home_HomeViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.home.HomeViewModel";
+      static String dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.insights.ProfileInsightsViewModel";
 
       static String dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel = "dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel";
 
-      static String dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.insights.ProfileInsightsViewModel";
+      static String dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileSessionsViewModel";
+
+      static String dev_ambitionsoftware_tymeboxed_ui_screens_home_HomeViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.home.HomeViewModel";
 
       static String dev_ambitionsoftware_tymeboxed_ui_screens_settings_SettingsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.settings.SettingsViewModel";
 
       static String dev_ambitionsoftware_tymeboxed_ui_theme_ThemeViewModel = "dev.ambitionsoftware.tymeboxed.ui.theme.ThemeViewModel";
 
-      static String dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileSessionsViewModel";
-
       @KeepFieldType
       ProfileEditViewModel dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileEditViewModel2;
 
       @KeepFieldType
-      HomeViewModel dev_ambitionsoftware_tymeboxed_ui_screens_home_HomeViewModel2;
+      ProfileInsightsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel2;
 
       @KeepFieldType
       PermissionsViewModel dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel2;
 
       @KeepFieldType
-      ProfileInsightsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel2;
+      ProfileSessionsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel2;
+
+      @KeepFieldType
+      HomeViewModel dev_ambitionsoftware_tymeboxed_ui_screens_home_HomeViewModel2;
 
       @KeepFieldType
       SettingsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_settings_SettingsViewModel2;
 
       @KeepFieldType
       ThemeViewModel dev_ambitionsoftware_tymeboxed_ui_theme_ThemeViewModel2;
-
-      @KeepFieldType
-      ProfileSessionsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel2;
     }
 
     private static final class SwitchingProvider<T> implements Provider<T> {

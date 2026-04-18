@@ -11,6 +11,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 
 /**
  * Core app-blocking engine, modeled after Switchly's SwitchlyAccessibilityService.
@@ -58,6 +59,12 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     private var lastGlobalBlockTs: Long = 0L
 
     private val BLOCK_SHOWN_COOLDOWN_MS = 800L
+
+    // Website blocking (browser URL bar) — state mirrored from Switchly
+    private val BROWSER_DOMAIN_CONFIRM_MS = 700L
+    private var browserCandidateDomain: String? = null
+    private var browserCandidateSince: Long = 0L
+    private val lastWebsiteSurfaceBlockAt = HashMap<String, Long>()
 
     // UsageEvents foreground refresh cadence
     private var lastTopRefreshAt: Long = 0L
@@ -111,6 +118,7 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         handler.removeCallbacks(tick)
+        handler.removeCallbacks(websiteResweepRunnable)
         usageWorkerThread?.quitSafely()
         usageWorkerThread = null
         usageWorker = null
@@ -125,6 +133,17 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     // Heartbeat tick — runs every 1 second
     // -----------------------------------------------------------------------
 
+    /** Second pass ~350ms after each tick while in a browser — URL bar often updates after the first tree read. */
+    private val websiteResweepRunnable = Runnable {
+        val pkg = currentTopPkg
+        if (!pkg.isNullOrBlank() && pkg != packageName &&
+            WebsiteBlockingSupport.isBrowserPackage(pkg) &&
+            ActiveBlockingState.hasDomainRules()
+        ) {
+            maybeBlock(pkg, event = null)
+        }
+    }
+
     private val tick = object : Runnable {
         override fun run() {
             try {
@@ -134,6 +153,14 @@ class AppBlockerAccessibilityService : AccessibilityService() {
                 // This catches: schedule boundary changes, profile edits while
                 // user is inside a blocked app, and OEMs that miss transitions.
                 enforceCurrentForeground()
+
+                val p = currentTopPkg
+                if (!p.isNullOrBlank() && WebsiteBlockingSupport.isBrowserPackage(p) &&
+                    ActiveBlockingState.hasDomainRules()
+                ) {
+                    handler.removeCallbacks(websiteResweepRunnable)
+                    handler.postDelayed(websiteResweepRunnable, 350L)
+                }
 
                 // Poll rootInActiveWindow as a secondary foreground signal
                 pollActiveWindowPackage()
@@ -155,7 +182,7 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     private fun enforceCurrentForeground() {
         val pkg = currentTopPkg ?: return
         if (pkg.isBlank() || pkg == packageName) return
-        maybeBlock(pkg)
+        maybeBlock(pkg, event = null)
     }
 
     /**
@@ -171,7 +198,7 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         if (rootPkg.isNullOrBlank() || rootPkg == packageName) return
         if (rootPkg != currentTopPkg) {
             currentTopPkg = rootPkg
-            maybeBlock(rootPkg)
+            maybeBlock(rootPkg, event = null)
         }
     }
 
@@ -201,7 +228,7 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             handler.post {
                 if (top != currentTopPkg && top != packageName) {
                     currentTopPkg = top
-                    maybeBlock(top)
+                    maybeBlock(top, event = null)
                 }
             }
         } ?: run {
@@ -246,12 +273,16 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
         val now = System.currentTimeMillis()
         val type = event?.eventType ?: 0
+        val websiteRulesActive = WebsiteBlockingSupport.isBrowserPackage(pkg) &&
+            ActiveBlockingState.hasDomainRules()
 
         // ── Event deduplication ──
         // Identical WINDOW_CONTENT_CHANGED from the same package within 100ms → skip
         if (pkg == lastEventPkg) {
             val dt = now - lastEventAt
-            if (type == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && dt < 100L) return
+            if (type == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && dt < 100L && !websiteRulesActive) {
+                return
+            }
             if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
                 type == lastEventType && dt < 50L
             ) return
@@ -264,21 +295,44 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         // Update foreground tracking
         currentTopPkg = pkg
 
+        if (!WebsiteBlockingSupport.isBrowserPackage(pkg)) {
+            browserCandidateDomain = null
+            browserCandidateSince = 0L
+        }
+
         val isTransition =
             type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
                 type == AccessibilityEvent.TYPE_WINDOWS_CHANGED
 
         if (isTransition) {
             lastTransitionAt = now
-            maybeBlock(pkg)
+            maybeBlock(pkg, event)
             return
         }
 
-        // For content/text/scroll/click events, enforce blocking shortly after transitions
-        // to close the "one-frame flash" window where the app is visible before overlay shows
+        // WINDOW_CONTENT_CHANGED: (1) short post-transition app flash, (2) ongoing browser
+        // navigations — URL updates rarely come with TYPE_WINDOW_STATE_CHANGED, so we must
+        // keep probing while a browser with domain rules is foreground.
         if (type == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
-            if (now - lastTransitionAt <= 500L) {
-                maybeBlock(pkg)
+            val postTransitionFlash = now - lastTransitionAt <= 500L
+            if (postTransitionFlash || websiteRulesActive) {
+                maybeBlock(pkg, event)
+            }
+            return
+        }
+
+        // Scroll/click in browser: URL / chrome UI updates without WINDOW_CONTENT_CHANGED.
+        if (websiteRulesActive) {
+            when (type) {
+                AccessibilityEvent.TYPE_VIEW_SCROLLED,
+                AccessibilityEvent.TYPE_VIEW_CLICKED,
+                -> maybeBlock(pkg, event)
+                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> {
+                    if (pkg.startsWith("org.mozilla.")) {
+                        maybeBlock(pkg, event)
+                    }
+                }
+                else -> Unit
             }
         }
     }
@@ -291,7 +345,7 @@ class AppBlockerAccessibilityService : AccessibilityService() {
      * Check whether [pkg] should be blocked and act on it.
      * Instead of force-closing, launches the [BlockerActivity] overlay.
      */
-    private fun maybeBlock(pkg: String) {
+    private fun maybeBlock(pkg: String, event: AccessibilityEvent?) {
         // Never block system-critical packages
         if (pkg in NEVER_BLOCK) return
 
@@ -299,13 +353,103 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         if (!pm.isInteractive) return
         if (km?.isKeyguardLocked == true) return
 
-        // Enforcement cadence: avoid duplicate blocks for the same package
+        // Website rules run **before** the app-level enforcement throttle. Otherwise the first
+        // probe often sees an empty URL bar and later updates within 150ms are dropped, so we
+        // never block (common on Chrome after in-page navigation).
+        val websiteCtx = WebsiteBlockingSupport.isBrowserPackage(pkg) && ActiveBlockingState.hasDomainRules()
+        if (websiteCtx && maybeBlockWebsite(pkg, event)) {
+            return
+        }
+
+        // Enforcement cadence: avoid duplicate app-level blocks during event storms
         if (!shouldRunEnforcement(pkg)) return
 
         // Check if blocking is active for this package
         if (!ActiveBlockingState.shouldBlock(pkg)) return
 
         showBlockerOverlay(pkg)
+    }
+
+    private fun currentRoot(event: AccessibilityEvent?): AccessibilityNodeInfo? {
+        return rootInActiveWindow
+            ?: event?.source
+            ?: runCatching { windows?.firstOrNull { it.isActive }?.root }.getOrNull()
+            ?: runCatching { windows?.firstOrNull()?.root }.getOrNull()
+    }
+
+    /**
+     * @return true if a website block overlay was shown (caller should skip app-level block).
+     */
+    private fun maybeBlockWebsite(pkg: String, event: AccessibilityEvent?): Boolean {
+        val root = currentRoot(event) ?: return false
+
+        if (WebsiteBlockingSupport.isBrowserAddressEditing(root, pkg, event)) {
+            if (!pkg.startsWith("org.mozilla.")) {
+                browserCandidateDomain = null
+                browserCandidateSince = 0L
+            }
+            return false
+        }
+
+        if (WebsiteBlockingSupport.shouldIgnoreEventForChromiumUrlField(pkg, event)) {
+            return false
+        }
+
+        val host = WebsiteBlockingSupport.tryExtractDomainFromBrowser(root, pkg, event) ?: run {
+            browserCandidateDomain = null
+            browserCandidateSince = 0L
+            return false
+        }
+
+        val now = System.currentTimeMillis()
+        val needStability = WebsiteBlockingSupport.requiresStableDomainConfirmation(pkg)
+        if (browserCandidateDomain != host) {
+            browserCandidateDomain = host
+            browserCandidateSince = now
+            if (needStability) return false
+        }
+        if (needStability && (now - browserCandidateSince < BROWSER_DOMAIN_CONFIRM_MS)) {
+            return false
+        }
+
+        if (!ActiveBlockingState.shouldBlockDomain(host)) return false
+
+        showWebsiteBlockOverlay(pkg, host)
+        return true
+    }
+
+    private fun showWebsiteBlockOverlay(pkg: String, host: String) {
+        val now = System.currentTimeMillis()
+
+        if (BlockerActivity.isVisible && BlockerActivity.visiblePkg == pkg) return
+
+        val sk = "$pkg|$host"
+        val lastSurf = lastWebsiteSurfaceBlockAt[sk] ?: 0L
+        if (now - lastSurf < BLOCK_SHOWN_COOLDOWN_MS) return
+
+        val lastShown = lastBlockShownAt[pkg] ?: 0L
+        if ((now - lastShown) < BLOCK_SHOWN_COOLDOWN_MS) return
+        if ((now - lastGlobalBlockTs) < 250L) return
+
+        lastWebsiteSurfaceBlockAt[sk] = now
+        lastBlockShownAt[pkg] = now
+        lastGlobalBlockTs = now
+
+        val browserLabel = try {
+            val ai = packageManager.getApplicationInfo(pkg, 0)
+            packageManager.getApplicationLabel(ai).toString()
+        } catch (_: Throwable) {
+            pkg
+        }
+
+        Log.d(TAG, "Website block overlay for $host in $pkg")
+
+        runCatching { performGlobalAction(GLOBAL_ACTION_BACK) }
+        handler.postDelayed({
+            runCatching {
+                BlockerActivity.showForWebsite(this, pkg, browserLabel, host)
+            }
+        }, 30L)
     }
 
     /**

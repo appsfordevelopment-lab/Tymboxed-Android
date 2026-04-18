@@ -78,11 +78,15 @@ class BlockerActivity : ComponentActivity() {
 
         val pkg = intent?.getStringExtra(EXTRA_PKG).orEmpty()
         val label = intent?.getStringExtra(EXTRA_LABEL).orEmpty()
+        val headline = intent?.getStringExtra(EXTRA_HEADLINE)
+        val body = intent?.getStringExtra(EXTRA_BODY)
 
         setContent {
             BlockerTheme {
                 BlockerScreen(
+                    headline = headline ?: "App Blocked",
                     appName = label.ifBlank { pkg },
+                    message = body ?: "This app is blocked by Tyme Boxed during your focus session. Stay focused!",
                     onGoBack = { handleClose() },
                 )
             }
@@ -126,6 +130,8 @@ class BlockerActivity : ComponentActivity() {
     companion object {
         private const val EXTRA_PKG = "pkg"
         private const val EXTRA_LABEL = "label"
+        private const val EXTRA_HEADLINE = "headline"
+        private const val EXTRA_BODY = "body"
 
         /** True while the blocker overlay is visible — prevents duplicate launches. */
         @Volatile
@@ -140,7 +146,13 @@ class BlockerActivity : ComponentActivity() {
          * Show the blocker overlay for the given package.
          * Called from [AppBlockerAccessibilityService] when a blocked app is detected.
          */
-        fun show(context: Context, pkg: String, label: String?) {
+        fun show(
+            context: Context,
+            pkg: String,
+            label: String?,
+            headline: String? = null,
+            body: String? = null,
+        ) {
             val i = Intent(context, BlockerActivity::class.java).apply {
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -150,8 +162,21 @@ class BlockerActivity : ComponentActivity() {
                 )
                 putExtra(EXTRA_PKG, pkg)
                 if (!label.isNullOrBlank()) putExtra(EXTRA_LABEL, label)
+                if (!headline.isNullOrBlank()) putExtra(EXTRA_HEADLINE, headline)
+                if (!body.isNullOrBlank()) putExtra(EXTRA_BODY, body)
             }
             context.startActivity(i)
+        }
+
+        /** Overlay when a specific website is blocked inside a browser. */
+        fun showForWebsite(context: Context, browserPkg: String, browserLabel: String, host: String) {
+            show(
+                context = context,
+                pkg = browserPkg,
+                label = host,
+                headline = "Website blocked",
+                body = "This website is blocked by Tyme Boxed during your focus session.\n($browserLabel)",
+            )
         }
 
         /** Send user to the home screen. */
@@ -213,7 +238,9 @@ private fun BlockerTheme(
 
 @Composable
 private fun BlockerScreen(
+    headline: String,
     appName: String,
+    message: String,
     onGoBack: () -> Unit,
 ) {
     // Subtle pulsing animation on the icon
@@ -298,7 +325,7 @@ private fun BlockerScreen(
 
                 // Title
                 Text(
-                    text = "App Blocked",
+                    text = headline,
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
@@ -320,7 +347,7 @@ private fun BlockerScreen(
 
                 // Message
                 Text(
-                    text = "This app is blocked by Tyme Boxed during your focus session. Stay focused!",
+                    text = message,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

@@ -190,6 +190,8 @@ class HomeViewModel @Inject constructor(
                 profileId = session.profileId,
                 blockedPackages = profile.blockedPackages.toSet(),
                 isAllowMode = profile.isAllowMode,
+                domains = profile.domains,
+                isAllowModeDomains = profile.isAllowModeDomains,
             )
             val serviceIntent = SessionBlockerService.startIntent(appContext, profile.name)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -221,6 +223,8 @@ class HomeViewModel @Inject constructor(
                 profileId = profileId,
                 blockedPackages = profile.blockedPackages.toSet(),
                 isAllowMode = profile.isAllowMode,
+                domains = profile.domains,
+                isAllowModeDomains = profile.isAllowModeDomains,
             )
 
             // Start foreground service (keeps the process alive + shows notification)

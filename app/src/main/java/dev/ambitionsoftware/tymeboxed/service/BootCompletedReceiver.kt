@@ -64,10 +64,18 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 val blockedPkgs = profileWithApps.blockedApps.map { it.packageName }.toSet()
 
                 // Rehydrate blocking state
+                val domainList = profile.domains
+                    ?.split(",")
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotBlank() }
+                    ?: emptyList()
+
                 ActiveBlockingState.activate(
                     profileId = activeSession.profileId,
                     blockedPackages = blockedPkgs,
                     isAllowMode = profile.isAllowMode,
+                    domains = domainList,
+                    isAllowModeDomains = profile.isAllowModeDomains,
                 )
 
                 // Restart the foreground service
