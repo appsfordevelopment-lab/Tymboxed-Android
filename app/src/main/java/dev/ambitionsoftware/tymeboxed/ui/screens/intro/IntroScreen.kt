@@ -2,6 +2,9 @@ package dev.ambitionsoftware.tymeboxed.ui.screens.intro
 
 import android.content.Context
 import android.content.Intent
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -87,7 +90,9 @@ import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import dev.ambitionsoftware.tymeboxed.BuildConfig
 import dev.ambitionsoftware.tymeboxed.R
+import dev.ambitionsoftware.tymeboxed.auth.GoogleSignInHelper
 import dev.ambitionsoftware.tymeboxed.data.prefs.AppPreferences
 import dev.ambitionsoftware.tymeboxed.permissions.PermissionIntents
 import dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel
@@ -133,6 +138,7 @@ fun IntroScreen(
                 signInEmail = email.trim()
                 step = 2
             },
+            onGoogleSignInSuccess = { step = 3 },
         )
         2 -> OtpStep(
             email = signInEmail,
@@ -364,11 +370,36 @@ private fun LoginStep(
     authVm: IntroAuthViewModel,
     onBack: () -> Unit,
     onLoginSuccess: (String) -> Unit,
+    onGoogleSignInSuccess: () -> Unit,
 ) {
     var email by rememberSaveable { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
+    var emailBusy by remember { mutableStateOf(false) }
+    var googleBusy by remember { mutableStateOf(false) }
+    val busy = emailBusy || googleBusy
     var errorText by rememberSaveable { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val activity = LocalContext.current as ComponentActivity
+    val googleLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+            scope.launch {
+                googleBusy = true
+                errorText = null
+                GoogleSignInHelper.idTokenFromResult(res.data).fold(
+                    onSuccess = { token ->
+                        authVm.signInWithGoogle(token).fold(
+                            onSuccess = { onGoogleSignInSuccess() },
+                            onFailure = { errorText = it.message ?: "Could not sign in" },
+                        )
+                    },
+                    onFailure = { e ->
+                        if (e !is GoogleSignInHelper.CancelledException) {
+                            errorText = e.message ?: "Google sign-in failed"
+                        }
+                    },
+                )
+                googleBusy = false
+            }
+        }
     val emailOk = remember(email) { isValidEmail(email) }
     val fieldShape = RoundedCornerShape(16.dp)
     val cs = MaterialTheme.colorScheme
@@ -485,14 +516,14 @@ private fun LoginStep(
             Button(
                 onClick = {
                     if (!emailOk || busy) return@Button
-                    busy = true
+                    emailBusy = true
                     errorText = null
                     scope.launch {
                         authVm.requestOtp(email).fold(
                             onSuccess = { onLoginSuccess(email) },
                             onFailure = { errorText = it.message ?: "Something went wrong" },
                         )
-                        busy = false
+                        emailBusy = false
                     }
                 },
                 enabled = emailOk && !busy,
@@ -507,7 +538,7 @@ private fun LoginStep(
                     disabledContentColor = muted,
                 ),
             ) {
-                if (busy) {
+                if (emailBusy) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(22.dp),
                         color = primaryBtnProgress,
@@ -549,7 +580,21 @@ private fun LoginStep(
             }
             Spacer(modifier = Modifier.height(28.dp))
             Button(
-                onClick = { /* Google Sign-In not configured on Android */ },
+                onClick = {
+                    if (busy) return@Button
+                    val webClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID
+                    if (webClientId.isBlank()) {
+                        errorText =
+                            "Add your OAuth Web client ID to local.properties as GOOGLE_WEB_CLIENT_ID=… " +
+                                "(Google Cloud Console, same project as this app’s SHA-1)."
+                        return@Button
+                    }
+                    errorText = null
+                    googleBusy = true
+                    val client = GoogleSignInHelper.client(activity, webClientId)
+                    googleLauncher.launch(client.signInIntent)
+                },
+                enabled = !busy,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -557,6 +602,8 @@ private fun LoginStep(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = googleBg,
                     contentColor = cs.onSurface,
+                    disabledContainerColor = fieldBg,
+                    disabledContentColor = muted,
                 ),
                 border = BorderStroke(1.dp, googleBorder),
                 elevation = ButtonDefaults.buttonElevation(
@@ -569,11 +616,19 @@ private fun LoginStep(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_google_sign_in),
-                        contentDescription = null,
-                        modifier = Modifier.size(22.dp),
-                    )
+                    if (googleBusy) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = cs.onSurface,
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Image(
+                            painter = painterResource(R.drawable.ic_google_sign_in),
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = "Continue with Google",

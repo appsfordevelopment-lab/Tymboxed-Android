@@ -20,6 +20,7 @@ coil = "2.7.0"
 accompanistPermissions = "0.36.0"
 gson = "2.11.0"
 coroutines = "1.9.0"
+playServicesAuth = "21.3.0"
 
 [libraries]
 # AndroidX core
@@ -68,6 +69,9 @@ gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 
 # Coroutines
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+
+# Google Sign-In (ID token for /api/auth/google)
+play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

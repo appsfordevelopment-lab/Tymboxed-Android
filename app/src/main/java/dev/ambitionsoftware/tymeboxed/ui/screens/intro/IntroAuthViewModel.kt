@@ -13,4 +13,7 @@ class IntroAuthViewModel @Inject constructor(
 
     suspend fun confirmOtp(email: String, code: String): Result<Unit> =
         authRepository.verifyOtp(email.trim(), code.trim())
+
+    suspend fun signInWithGoogle(idToken: String): Result<Unit> =
+        authRepository.signInWithGoogle(idToken)
 }

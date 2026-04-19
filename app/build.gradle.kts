@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,16 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
+
+val localProperties = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val googleWebClientId: String =
+    localProperties.getProperty("GOOGLE_WEB_CLIENT_ID", "")
+        .trim()
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
 
 android {
     namespace = "dev.ambitionsoftware.tymeboxed"
@@ -25,6 +37,8 @@ android {
             "TYMEBOXED_API_BASE_URL",
             "\"https://api.tymeboxed.app\"",
         )
+        // OAuth 2.0 Web client ID (Google Cloud / Firebase). Same project as your Android app + SHA-1.
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
     buildTypes {
@@ -109,4 +123,7 @@ dependencies {
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
+
+    // Google Sign-In (ID token → POST /api/auth/google)
+    implementation(libs.play.services.auth)
 }

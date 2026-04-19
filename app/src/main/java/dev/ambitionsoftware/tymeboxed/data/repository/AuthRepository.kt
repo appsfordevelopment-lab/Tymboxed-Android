@@ -31,6 +31,10 @@ class AuthRepository @Inject constructor() {
         postAuth("/api/auth/verify-otp", mapOf("email" to email, "otp" to otp))
     }
 
+    suspend fun signInWithGoogle(idToken: String): Result<Unit> = withContext(Dispatchers.IO) {
+        postAuth("/api/auth/google", mapOf("idToken" to idToken))
+    }
+
     private fun postAuth(path: String, payload: Map<String, String>): Result<Unit> {
         val jsonBody = gson.toJson(payload)
         val url = URL(baseUrl + path)
