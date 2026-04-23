@@ -55,6 +55,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.ambitionsoftware.tymeboxed.data.db.dao.TagDao
 import dev.ambitionsoftware.tymeboxed.data.repository.ProfileRepository
 import dev.ambitionsoftware.tymeboxed.data.repository.SessionRepository
 import dev.ambitionsoftware.tymeboxed.service.ActiveBlockingState
@@ -78,6 +79,7 @@ class SettingsViewModel @Inject constructor(
     private val themeController: ThemeController,
     private val sessionRepository: SessionRepository,
     private val profileRepository: ProfileRepository,
+    private val tagDao: TagDao,
 ) : ViewModel() {
 
     val accent: StateFlow<AccentColor> = themeController.accent.stateIn(
@@ -102,6 +104,7 @@ class SettingsViewModel @Inject constructor(
             ActiveBlockingState.deactivate()
             sessionRepository.resetActive()
             profileRepository.deleteAll()
+            tagDao.deleteAll()
         }
     }
 }

@@ -38,6 +38,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -107,7 +110,7 @@ import kotlinx.coroutines.launch
 private const val OtpLength = 6
 
 /**
- * Onboarding: welcome → email → OTP verify → permissions.
+ * Onboarding: welcome → email → OTP verify → blocking explainer → permissions.
  */
 @Composable
 fun IntroScreen(
@@ -115,6 +118,8 @@ fun IntroScreen(
     prefs: AppPreferences,
 ) {
     var step by rememberSaveable { mutableIntStateOf(0) }
+    /** `true` when the user signed in with Google (skipped OTP); drives back from the explainer. */
+    var postAuthViaGoogle by rememberSaveable { mutableStateOf(false) }
     var signInEmail by rememberSaveable { mutableStateOf("") }
     val vm: PermissionsViewModel = hiltViewModel()
     val authVm: IntroAuthViewModel = hiltViewModel()
@@ -138,15 +143,25 @@ fun IntroScreen(
                 signInEmail = email.trim()
                 step = 2
             },
-            onGoogleSignInSuccess = { step = 3 },
+            onGoogleSignInSuccess = {
+                postAuthViaGoogle = true
+                step = 3
+            },
         )
         2 -> OtpStep(
             email = signInEmail,
             authVm = authVm,
             onBack = { step = 1 },
-            onVerified = { step = 3 },
+            onVerified = {
+                postAuthViaGoogle = false
+                step = 3
+            },
         )
-        3 -> PermissionsStep(
+        3 -> ConnectExplainerStep(
+            onContinue = { step = 4 },
+            onBack = { step = if (postAuthViaGoogle) 1 else 2 },
+        )
+        4 -> PermissionsStep(
             vm = vm,
             onDone = {
                 scope.launch {
@@ -154,7 +169,7 @@ fun IntroScreen(
                     onIntroComplete()
                 }
             },
-            onBack = { step = 2 },
+            onBack = { step = 3 },
         )
     }
 }
@@ -842,6 +857,194 @@ private fun OtpStep(
 }
 
 @Composable
+private fun ConnectExplainerStep(
+    onContinue: () -> Unit,
+    onBack: () -> Unit,
+) {
+    val context = LocalContext.current
+    val cs = MaterialTheme.colorScheme
+    val scroll = rememberScrollState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(cs.background)
+            .statusBarsPadding(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            FilledIconButton(
+                onClick = onBack,
+                modifier = Modifier.size(40.dp),
+                shape = CircleShape,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = cs.surfaceContainerHigh,
+                    contentColor = cs.onSurface,
+                ),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(scroll)
+                .padding(horizontal = 20.dp),
+        ) {
+            Text(
+                text = "Connect Tyme Boxed on this device",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = cs.onBackground,
+                lineHeight = 28.sp,
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+
+            ConnectExplainerRow(
+                icon = Icons.Filled.Settings,
+                title = "How you'll use this",
+                body = "Granting access lets Tyme Boxed know which app is in the foreground and " +
+                    "show a blocking screen for apps and sites you restrict during focus sessions. " +
+                    "On Android this uses Accessibility and usage access—similar in spirit to " +
+                    "Screen Time on iPhone.",
+                iconTint = cs.primary,
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            ConnectExplainerRow(
+                icon = Icons.Filled.Lock,
+                title = "How we'll use this",
+                body = "We never see which apps you block or your browsing history. Your choices " +
+                    "stay private and stored on your device.",
+                iconTint = cs.primary,
+                footerLink = {
+                    val annotated = buildAnnotatedString {
+                        pushStringAnnotation(
+                            tag = "privacy",
+                            annotation = "https://www.tymeboxed.app/privacy",
+                        )
+                        withStyle(
+                            style = SpanStyle(
+                                color = cs.primary,
+                                fontWeight = FontWeight.Medium,
+                                textDecoration = TextDecoration.Underline,
+                            ),
+                        ) {
+                            append("Learn more in our privacy policy")
+                        }
+                        pop()
+                    }
+                    androidx.compose.foundation.text.ClickableText(
+                        text = annotated,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = cs.onSurfaceVariant,
+                            lineHeight = 20.sp,
+                        ),
+                        onClick = { offset ->
+                            annotated.getStringAnnotations(start = offset, end = offset)
+                                .firstOrNull()?.let { sa ->
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_VIEW, sa.item.toUri()),
+                                    )
+                                }
+                        },
+                    )
+                },
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            ConnectExplainerRow(
+                icon = Icons.Filled.Star,
+                title = "Why it matters",
+                body = "This is how Tyme Boxed helps you create focused, intentional time—without " +
+                    "deleting apps.",
+                iconTint = cs.primary,
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .padding(top = 4.dp, bottom = 20.dp),
+        ) {
+            Text(
+                text = "On the next screen, tap Grant beside each permission. Android may open " +
+                    "Settings—use the back gesture or button to return here when you're done.",
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+                lineHeight = 18.sp,
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
+            ActionButton(
+                title = "Allow access",
+                onClick = onContinue,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ConnectExplainerRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    body: String,
+    iconTint: Color,
+    footerLink: (@Composable () -> Unit)? = null,
+) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(cs.surfaceContainerHigh),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = iconTint,
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = cs.onBackground,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = cs.onSurfaceVariant,
+                lineHeight = 22.sp,
+            )
+            if (footerLink != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                footerLink()
+            }
+        }
+    }
+}
+
+@Composable
 private fun PermissionsStep(
     vm: PermissionsViewModel,
     onDone: () -> Unit,
@@ -939,18 +1142,6 @@ private fun PermissionsStep(
             ) {
                 SettingsCard(title = "Required") {
                     TymePermission.requiredPermissions.forEachIndexed { idx, perm ->
-                        PermissionRow(
-                            permission = perm,
-                            granted = states[perm] == true,
-                            onGrantClick = { openPermissionIntent(ctx, perm) },
-                        )
-                        if (idx < TymePermission.requiredPermissions.lastIndex) {
-                            SettingsCardDivider()
-                        }
-                    }
-                }
-                SettingsCard(title = "Optional") {
-                    TymePermission.optionalPermissions.forEachIndexed { idx, perm ->
                         val nfcUnavailable = perm == TymePermission.NFC && !vm.isNfcAvailable
                         PermissionRow(
                             permission = perm,
@@ -958,7 +1149,7 @@ private fun PermissionsStep(
                             onGrantClick = { openPermissionIntent(ctx, perm) },
                             unavailable = nfcUnavailable,
                         )
-                        if (idx < TymePermission.optionalPermissions.lastIndex) {
+                        if (idx < TymePermission.requiredPermissions.lastIndex) {
                             SettingsCardDivider()
                         }
                     }

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -39,8 +40,8 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FormatListBulleted
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Nfc
@@ -116,6 +117,13 @@ import dev.ambitionsoftware.tymeboxed.domain.model.Profile
 import dev.ambitionsoftware.tymeboxed.domain.model.Session
 import dev.ambitionsoftware.tymeboxed.domain.model.strategyInfoById
 import dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
+import kotlin.math.roundToInt
 import dev.ambitionsoftware.tymeboxed.service.ActiveBlockingState
 import dev.ambitionsoftware.tymeboxed.service.SessionBlockerService
 import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCard
@@ -162,7 +170,7 @@ class HomeViewModel @Inject constructor(
     val activityChartType: StateFlow<String> = appPreferences.activityChartType.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = ActivityChartType.FOUR_WEEK,
+        initialValue = ActivityChartType.MONTHLY,
     )
 
     fun setActivityChartVisible(visible: Boolean) {
@@ -282,6 +290,35 @@ fun HomeScreen(
     var showManageChartSheet by remember { mutableStateOf(false) }
     var showProfilesSheet by remember { mutableStateOf(false) }
     var insightsProfile by remember { mutableStateOf<Profile?>(null) }
+    var nfcPendingProfileId by remember { mutableStateOf<String?>(null) }
+    var nfcStopPending by remember { mutableStateOf(false) }
+
+    val nfcPendingProfile = remember(nfcPendingProfileId, profiles) {
+        nfcPendingProfileId?.let { id -> profiles.firstOrNull { it.id == id } }
+    }
+
+    fun requestStartSession(profileId: String) {
+        if (!permissionsVm.isNfcAvailable) {
+            vm.startSession(profileId)
+            return
+        }
+        nfcPendingProfileId = profileId
+    }
+
+    fun requestStopSession() {
+        if (!permissionsVm.isNfcAvailable) {
+            vm.stopSession()
+            return
+        }
+        nfcStopPending = true
+    }
+
+    LaunchedEffect(nfcPendingProfileId, profiles) {
+        val id = nfcPendingProfileId ?: return@LaunchedEffect
+        if (profiles.none { it.id == id }) {
+            nfcPendingProfileId = null
+        }
+    }
 
     // Re-check permissions whenever Home regains focus (e.g. user came back
     // from Android Settings after tapping the banner).
@@ -304,6 +341,33 @@ fun HomeScreen(
             chartType = activityChartType,
             onChartTypeChange = vm::setActivityChartType,
             onDismiss = { showManageChartSheet = false },
+        )
+    }
+
+    nfcPendingProfile?.let { profile ->
+        NfcIosStyleScanSheet(
+            profileName = profile.name.ifBlank { "session" },
+            purpose = NfcSessionScanPurpose.Start,
+            onTagScanned = {
+                vm.startSession(profile.id)
+                nfcPendingProfileId = null
+            },
+            onDismiss = { nfcPendingProfileId = null },
+        )
+    }
+
+    if (nfcStopPending) {
+        val stopProfileName = activeSession?.let { s ->
+            profiles.firstOrNull { it.id == s.profileId }?.name?.takeIf { it.isNotBlank() }
+        } ?: "session"
+        NfcIosStyleScanSheet(
+            profileName = stopProfileName,
+            purpose = NfcSessionScanPurpose.Stop,
+            onTagScanned = {
+                vm.stopSession()
+                nfcStopPending = false
+            },
+            onDismiss = { nfcStopPending = false },
         )
     }
 
@@ -391,6 +455,7 @@ fun HomeScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
                             ActivitySection(
                                 showChart = activityChartVisible,
+                                chartType = activityChartType,
                                 onManage = { showManageChartSheet = true },
                             )
                             ProfileRegionHeader(onManage = { showProfilesSheet = true })
@@ -400,8 +465,8 @@ fun HomeScreen(
                                 sessionCounts = sessionCounts,
                                 onEditProfile = onEditProfile,
                                 onInsightsProfile = { insightsProfile = it },
-                                onStartSession = { vm.startSession(it) },
-                                onStopSession = { vm.stopSession() },
+                                onStartSession = { requestStartSession(it) },
+                                onStopSession = { requestStopSession() },
                             )
                         }
                     }
@@ -585,6 +650,7 @@ private fun WelcomeEmptyCard(onTap: () -> Unit) {
 @Composable
 private fun ActivitySection(
     showChart: Boolean,
+    chartType: String,
     onManage: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
@@ -606,7 +672,7 @@ private fun ActivitySection(
             )
         }
         if (showChart) {
-            ActivityHeatmapCard()
+            ActivityHeatmapCard(chartType = chartType)
         } else {
             ActivityChartHiddenPlaceholder()
         }
@@ -1094,21 +1160,46 @@ private fun ManagePill(
     }
 }
 
+private fun formatAvgFocusMinutes(minutes: Float): String {
+    val m = minutes.roundToInt().coerceAtLeast(0)
+    return if (m < 1) "0m" else "${m}m"
+}
+
+private val activityDayAxisFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("EEE d")
+
 @Composable
-private fun ActivityHeatmapCard() {
+private fun ActivityHeatmapCard(chartType: String) {
+    when (chartType) {
+        ActivityChartType.WEEKLY -> ActivityWeeklyChartCard()
+        ActivityChartType.FOUR_WEEK -> ActivityFourWeekHeatmapCard()
+        ActivityChartType.MONTHLY -> ActivityMonthlyGridCard()
+        else -> ActivityMonthlyGridCard()
+    }
+}
+
+@Composable
+private fun ActivityWeeklyChartCard() {
     val cs = MaterialTheme.colorScheme
     val isDark = isSystemInDarkTheme()
     val cardShape = RoundedCornerShape(22.dp)
-    val cellShape = RoundedCornerShape(8.dp)
-    val cellHeight = 38.dp
-    val rowGap = 8.dp
-    val legendColors = listOf(
-        Color(0xFF3A3A3C),
-        Color(0xFF8B7355),
-        Color(0xFFC4A77D),
-        Color(0xFFE8D4B8),
-    )
-    val legendLabels = listOf("<1h", "1–3h", "3–5h", ">5h")
+    val zone = remember { ZoneId.systemDefault() }
+    val today = remember(zone) { LocalDate.now(zone) }
+    val weekStart = remember(today) {
+        today.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
+    }
+    val days = remember(weekStart) {
+        (0..6).map { weekStart.plusDays(it.toLong()) }
+    }
+    val todayIndex = remember(days, today) { days.indexOf(today).coerceIn(0, 6) }
+    val minutesPerDay = remember { FloatArray(7) { 0f } }
+    val avgMinutes = remember(minutesPerDay) { minutesPerDay.average().toFloat() }
+    val maxMinutes = remember(minutesPerDay) {
+        (minutesPerDay.maxOrNull() ?: 0f).coerceAtLeast(1f)
+    }
+
+    val barAccent = Color(0xFFC4A77D)
+    val barMuted = cs.surfaceVariant.copy(alpha = if (isDark) 0.55f else 0.85f)
 
     Column(
         modifier = Modifier
@@ -1120,13 +1211,181 @@ private fun ActivityHeatmapCard() {
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Avg Focus Session",
+                style = MaterialTheme.typography.labelMedium,
+                color = cs.onSurfaceVariant,
+            )
+            Text(
+                text = formatAvgFocusMinutes(avgMinutes),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = cs.onSurface,
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(152.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                minutesPerDay.forEachIndexed { i, mins ->
+                    val frac = (mins / maxMinutes).coerceIn(0f, 1f)
+                    val showMin = frac <= 0f && i == todayIndex
+                    val barFrac = when {
+                        frac > 0f -> frac
+                        showMin -> 0.12f
+                        else -> 0.04f
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.BottomCenter,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.72f)
+                                    .fillMaxHeight(barFrac)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(
+                                        if (i == todayIndex) barAccent else barMuted,
+                                    ),
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = activityDayAxisFormatter.format(days[i]),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = cs.onSurface,
+                            fontSize = 10.sp,
+                            maxLines = 1,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .padding(start = 4.dp)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.End,
+            ) {
+                repeat(4) {
+                    Text(
+                        text = formatAvgFocusMinutes(avgMinutes),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = cs.onSurfaceVariant,
+                        fontSize = 9.sp,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActivityFourWeekHeatmapCard() {
+    val cs = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
+    val cardShape = RoundedCornerShape(22.dp)
+    val cellShape = RoundedCornerShape(8.dp)
+    val rowGap = 6.dp
+    val cellHeight = 34.dp
+    val legendColors = listOf(
+        Color(0xFF3A3A3C),
+        Color(0xFF8B7355),
+        Color(0xFFC4A77D),
+        Color(0xFFE8D4B8),
+    )
+    val legendLabels = listOf("<1h", "1–3h", "3–5h", ">5h")
+
+    val zone = remember { ZoneId.systemDefault() }
+    val today = remember(zone) { LocalDate.now(zone) }
+    val windowStart = remember(today) { today.minusDays(27) }
+    val minutesPerDay = remember { FloatArray(28) { 0f } }
+    val cellIdle = cs.surfaceVariant.copy(alpha = if (isDark) 0.55f else 0.85f)
+    val cellToday = Color(0xFFC4A77D)
+
+    fun bucketColor(minutes: Float): Color = when {
+        minutes < 1f -> Color(0xFF3A3A3C)
+        minutes < 180f -> Color(0xFF8B7355)
+        minutes < 300f -> Color(0xFFC4A77D)
+        else -> Color(0xFFE8D4B8)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 248.dp)
+            .clip(cardShape)
+            .border(1.dp, cs.outline.copy(alpha = 0.45f), cardShape)
+            .background(cs.surface)
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(rowGap),
+        ) {
+            repeat(4) { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    repeat(7) { col ->
+                        val index = row * 7 + col
+                        val date = windowStart.plusDays(index.toLong())
+                        val isToday = date == today
+                        val mins = minutesPerDay[index]
+                        val fill = when {
+                            isToday && mins < 1f -> cellToday
+                            mins < 1f -> cellIdle
+                            else -> bucketColor(mins)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(cellHeight)
+                                .clip(cellShape)
+                                .background(fill),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "${date.dayOfMonth}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = cs.onSurface,
+                                fontSize = 11.sp,
+                            )
+                        }
+                    }
+                }
+            }
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             legendColors.forEachIndexed { i, c ->
-                if (i > 0) Spacer(modifier = Modifier.width(8.dp))
+                if (i > 0) Spacer(modifier = Modifier.width(10.dp))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
                         modifier = Modifier
@@ -1143,43 +1402,109 @@ private fun ActivityHeatmapCard() {
                 }
             }
         }
-        val startDay = 21
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            repeat(7) { col ->
-                Text(
-                    text = "${startDay + col}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = cs.onSurface,
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                )
-            }
-        }
+    }
+}
+
+@Composable
+private fun ActivityMonthlyGridCard() {
+    val cs = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
+    val cardShape = RoundedCornerShape(22.dp)
+    val cellShape = RoundedCornerShape(8.dp)
+    val rowGap = 6.dp
+    val cellHeight = 34.dp
+    val legendColors = listOf(
+        Color(0xFF3A3A3C),
+        Color(0xFF8B7355),
+        Color(0xFFC4A77D),
+        Color(0xFFE8D4B8),
+    )
+    val legendLabels = listOf("<1h", "1–3h", "3–5h", ">5h")
+
+    val zone = remember { ZoneId.systemDefault() }
+    val today = remember(zone) { LocalDate.now(zone) }
+    val month = remember(today) { YearMonth.from(today) }
+    val daysInMonth = month.lengthOfMonth()
+    val first = remember(month) { month.atDay(1) }
+    val leading = remember(first) { first.dayOfWeek.value % 7 }
+    val totalCells = leading + daysInMonth
+    val rows = (totalCells + 6) / 7
+
+    val cellIdle = cs.surfaceVariant.copy(alpha = if (isDark) 0.55f else 0.85f)
+    val cellToday = Color(0xFFC4A77D)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 248.dp)
+            .clip(cardShape)
+            .border(1.dp, cs.outline.copy(alpha = 0.45f), cardShape)
+            .background(cs.surface)
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(rowGap),
         ) {
-            repeat(4) {
+            repeat(rows) { row ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    repeat(7) {
+                    repeat(7) { col ->
+                        val idx = row * 7 + col
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(cellHeight)
-                                .clip(cellShape)
-                                .background(
-                                    cs.surfaceVariant.copy(
-                                        alpha = if (isDark) 0.55f else 0.85f,
-                                    ),
-                                ),
-                        )
+                                .height(cellHeight),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (idx in leading until leading + daysInMonth) {
+                                val day = idx - leading + 1
+                                val date = month.atDay(day)
+                                val isToday = date == today
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(cellShape)
+                                        .background(if (isToday) cellToday else cellIdle),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = "$day",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = cs.onSurface,
+                                        fontSize = 11.sp,
+                                    )
+                                }
+                            }
+                        }
                     }
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            legendColors.forEachIndexed { i, c ->
+                if (i > 0) Spacer(modifier = Modifier.width(10.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(c),
+                    )
+                    Text(
+                        text = legendLabels[i],
+                        style = MaterialTheme.typography.labelSmall,
+                        color = cs.onSurfaceVariant,
+                        fontSize = 9.sp,
+                    )
                 }
             }
         }

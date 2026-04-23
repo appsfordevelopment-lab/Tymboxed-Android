@@ -66,22 +66,14 @@ class SessionBlockerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        // Stop action
-        val stopIntent = Intent(this, SessionBlockerService::class.java).apply {
-            action = ACTION_STOP
-        }
-        val stopPending = PendingIntent.getService(
-            this, 1, stopIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Tyme Boxed Active")
-            .setContentText("Blocking apps for \"$profileName\"")
+            .setContentText(
+                "Blocking apps for \"$profileName\". Open the app and scan to stop.",
+            )
             .setOngoing(true)
             .setContentIntent(openPending)
-            .addAction(0, "Stop Session", stopPending)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()

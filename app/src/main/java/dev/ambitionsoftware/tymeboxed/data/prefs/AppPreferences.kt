@@ -34,7 +34,7 @@ class AppPreferences @Inject constructor(
 
     /** One of [ActivityChartType] string constants. */
     val activityChartType: Flow<String> =
-        context.dataStore.data.map { it[KEY_ACTIVITY_CHART_TYPE] ?: ActivityChartType.FOUR_WEEK }
+        context.dataStore.data.map { it[KEY_ACTIVITY_CHART_TYPE] ?: ActivityChartType.MONTHLY }
 
     suspend fun setThemeColorName(name: String) {
         context.dataStore.edit { it[KEY_THEME] = name }

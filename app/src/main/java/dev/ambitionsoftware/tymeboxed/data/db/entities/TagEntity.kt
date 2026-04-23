@@ -4,10 +4,8 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * A tymeboxed tag that has been registered on-device. Phase 1 policy:
- * any NFC tag can start or stop a session — so this table is not
- * required for unlock, only for the "physical unblock" opt-in on a
- * profile (see [ProfileEntity.physicalUnblockNfcTagId]).
+ * Legacy on-device NFC tag row (optional / future use). Session flows do not
+ * require registration in this table.
  */
 @Entity(tableName = "tags")
 data class TagEntity(

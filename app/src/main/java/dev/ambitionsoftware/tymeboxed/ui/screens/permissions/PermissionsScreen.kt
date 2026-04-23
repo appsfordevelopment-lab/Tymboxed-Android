@@ -113,19 +113,6 @@ fun PermissionsScreen(
 
             SettingsCard(title = "Required") {
                 TymePermission.requiredPermissions.forEachIndexed { idx, perm ->
-                    PermissionRow(
-                        permission = perm,
-                        granted = states[perm] == true,
-                        onGrantClick = { openPermissionIntent(ctx, perm) },
-                    )
-                    if (idx < TymePermission.requiredPermissions.lastIndex) {
-                        SettingsCardDivider()
-                    }
-                }
-            }
-
-            SettingsCard(title = "Optional") {
-                TymePermission.optionalPermissions.forEachIndexed { idx, perm ->
                     val nfcUnavailable = perm == TymePermission.NFC && !vm.isNfcAvailable
                     PermissionRow(
                         permission = perm,
@@ -133,7 +120,7 @@ fun PermissionsScreen(
                         onGrantClick = { openPermissionIntent(ctx, perm) },
                         unavailable = nfcUnavailable,
                     )
-                    if (idx < TymePermission.optionalPermissions.lastIndex) {
+                    if (idx < TymePermission.requiredPermissions.lastIndex) {
                         SettingsCardDivider()
                     }
                 }

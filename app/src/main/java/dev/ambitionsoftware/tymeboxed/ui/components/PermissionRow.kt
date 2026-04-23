@@ -33,9 +33,8 @@ import dev.ambitionsoftware.tymeboxed.permissions.TymePermission
  * - Right side exposes a "Grant" / "Granted" action the caller wires up with
  *   a deep-link intent.
  *
- * Required permissions render the warning icon in amber; optional permissions
- * render it in muted grey, so the intro's "continue" gate is visually honest
- * about which checks actually block progress.
+ * Required rows use an amber warning icon when not granted. Unavailable rows
+ * (e.g. NFC on hardware-less devices) are muted.
  */
 @Composable
 fun PermissionRow(

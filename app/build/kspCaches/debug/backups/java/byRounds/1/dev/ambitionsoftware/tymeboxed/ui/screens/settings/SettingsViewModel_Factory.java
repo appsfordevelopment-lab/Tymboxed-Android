@@ -4,6 +4,7 @@ import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
+import dev.ambitionsoftware.tymeboxed.data.db.dao.TagDao;
 import dev.ambitionsoftware.tymeboxed.data.repository.ProfileRepository;
 import dev.ambitionsoftware.tymeboxed.data.repository.SessionRepository;
 import dev.ambitionsoftware.tymeboxed.ui.theme.ThemeController;
@@ -31,27 +32,30 @@ public final class SettingsViewModel_Factory implements Factory<SettingsViewMode
 
   private final Provider<ProfileRepository> profileRepositoryProvider;
 
+  private final Provider<TagDao> tagDaoProvider;
+
   public SettingsViewModel_Factory(Provider<ThemeController> themeControllerProvider,
       Provider<SessionRepository> sessionRepositoryProvider,
-      Provider<ProfileRepository> profileRepositoryProvider) {
+      Provider<ProfileRepository> profileRepositoryProvider, Provider<TagDao> tagDaoProvider) {
     this.themeControllerProvider = themeControllerProvider;
     this.sessionRepositoryProvider = sessionRepositoryProvider;
     this.profileRepositoryProvider = profileRepositoryProvider;
+    this.tagDaoProvider = tagDaoProvider;
   }
 
   @Override
   public SettingsViewModel get() {
-    return newInstance(themeControllerProvider.get(), sessionRepositoryProvider.get(), profileRepositoryProvider.get());
+    return newInstance(themeControllerProvider.get(), sessionRepositoryProvider.get(), profileRepositoryProvider.get(), tagDaoProvider.get());
   }
 
   public static SettingsViewModel_Factory create(Provider<ThemeController> themeControllerProvider,
       Provider<SessionRepository> sessionRepositoryProvider,
-      Provider<ProfileRepository> profileRepositoryProvider) {
-    return new SettingsViewModel_Factory(themeControllerProvider, sessionRepositoryProvider, profileRepositoryProvider);
+      Provider<ProfileRepository> profileRepositoryProvider, Provider<TagDao> tagDaoProvider) {
+    return new SettingsViewModel_Factory(themeControllerProvider, sessionRepositoryProvider, profileRepositoryProvider, tagDaoProvider);
   }
 
   public static SettingsViewModel newInstance(ThemeController themeController,
-      SessionRepository sessionRepository, ProfileRepository profileRepository) {
-    return new SettingsViewModel(themeController, sessionRepository, profileRepository);
+      SessionRepository sessionRepository, ProfileRepository profileRepository, TagDao tagDao) {
+    return new SettingsViewModel(themeController, sessionRepository, profileRepository, tagDao);
   }
 }

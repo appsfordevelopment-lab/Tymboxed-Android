@@ -2,7 +2,6 @@ package dev.ambitionsoftware.tymeboxed.permissions
 
 import android.Manifest
 import android.accessibilityservice.AccessibilityServiceInfo
-import android.app.AlarmManager
 import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
 import android.content.ComponentName
@@ -10,7 +9,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.nfc.NfcAdapter
 import android.os.Build
-import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
@@ -28,8 +26,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * Single source of truth for whether each [TymePermission] is currently granted.
  *
  * This is the Android-side analogue of iOS `RequestAuthorizer` (which only has
- * to track Family Controls). Because Android has seven distinct permissions
- * with different check APIs, all of them are centralized here and exposed as a
+ * to track Family Controls). Because Android has several distinct checks
+ * with different APIs, all of them are centralized here and exposed as a
  * single [StateFlow] that the intro wizard, the Settings > Permissions card,
  * and [PermissionsViewModel] (home banner / session gate) subscribe to.
  *
@@ -76,11 +74,8 @@ class PermissionsCoordinator @Inject constructor(
     private fun computeOne(perm: TymePermission): Boolean = when (perm) {
         TymePermission.ACCESSIBILITY -> isAccessibilityServiceEnabled()
         TymePermission.USAGE_STATS -> isUsageStatsGranted()
-        TymePermission.OVERLAY -> Settings.canDrawOverlays(context)
         TymePermission.NOTIFICATIONS -> isNotificationsGranted()
-        TymePermission.EXACT_ALARMS -> isExactAlarmsGranted()
-        TymePermission.BATTERY_OPTIMIZATIONS -> isBatteryOptimizationsIgnored()
-        TymePermission.NFC -> isNfcEnabled()
+        TymePermission.NFC -> isNfcRequirementSatisfied()
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
@@ -203,25 +198,16 @@ class PermissionsCoordinator @Inject constructor(
         return notificationsOn
     }
 
-    private fun isExactAlarmsGranted(): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager)
-                .canScheduleExactAlarms()
-        } else {
-            true
-        }
-
-    private fun isBatteryOptimizationsIgnored(): Boolean {
-        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        return pm.isIgnoringBatteryOptimizations(context.packageName)
-    }
-
     /** True when the device has NFC hardware. False on emulators without NFC. */
     val isNfcHardwareAvailable: Boolean
         get() = NfcAdapter.getDefaultAdapter(context) != null
 
-    private fun isNfcEnabled(): Boolean {
-        val adapter = NfcAdapter.getDefaultAdapter(context) ?: return false
+    /**
+     * NFC is required when the device has hardware (must be on). No hardware ⇒ satisfied so
+     * onboarding can complete on NFC-less devices.
+     */
+    private fun isNfcRequirementSatisfied(): Boolean {
+        val adapter = NfcAdapter.getDefaultAdapter(context) ?: return true
         return adapter.isEnabled
     }
 }
