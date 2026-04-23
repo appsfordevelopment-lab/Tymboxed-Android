@@ -136,9 +136,11 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     /** Second pass ~350ms after each tick while in a browser — URL bar often updates after the first tree read. */
     private val websiteResweepRunnable = Runnable {
         val pkg = currentTopPkg
-        if (!pkg.isNullOrBlank() && pkg != packageName &&
-            WebsiteBlockingSupport.isBrowserPackage(pkg) &&
-            ActiveBlockingState.hasDomainRules()
+        if (!pkg.isNullOrBlank() && pkg != packageName && ActiveBlockingState.hasDomainRules() &&
+            (
+                WebsiteBlockingSupport.isBrowserPackage(pkg) ||
+                    shouldProbeNativeDomainRules(pkg)
+                )
         ) {
             maybeBlock(pkg, event = null)
         }
@@ -155,8 +157,11 @@ class AppBlockerAccessibilityService : AccessibilityService() {
                 enforceCurrentForeground()
 
                 val p = currentTopPkg
-                if (!p.isNullOrBlank() && WebsiteBlockingSupport.isBrowserPackage(p) &&
-                    ActiveBlockingState.hasDomainRules()
+                if (!p.isNullOrBlank() && ActiveBlockingState.hasDomainRules() &&
+                    (
+                        WebsiteBlockingSupport.isBrowserPackage(p) ||
+                            shouldProbeNativeDomainRules(p)
+                        )
                 ) {
                     handler.removeCallbacks(websiteResweepRunnable)
                     handler.postDelayed(websiteResweepRunnable, 350L)
@@ -275,12 +280,16 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         val type = event?.eventType ?: 0
         val websiteRulesActive = WebsiteBlockingSupport.isBrowserPackage(pkg) &&
             ActiveBlockingState.hasDomainRules()
+        val domainRulesNeedProbe = ActiveBlockingState.hasDomainRules() && (
+            websiteRulesActive ||
+                shouldProbeNativeDomainRules(pkg)
+            )
 
         // ── Event deduplication ──
         // Identical WINDOW_CONTENT_CHANGED from the same package within 100ms → skip
         if (pkg == lastEventPkg) {
             val dt = now - lastEventAt
-            if (type == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && dt < 100L && !websiteRulesActive) {
+            if (type == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && dt < 100L && !domainRulesNeedProbe) {
                 return
             }
             if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
@@ -315,7 +324,7 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         // keep probing while a browser with domain rules is foreground.
         if (type == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
             val postTransitionFlash = now - lastTransitionAt <= 500L
-            if (postTransitionFlash || websiteRulesActive) {
+            if (postTransitionFlash || domainRulesNeedProbe) {
                 maybeBlock(pkg, event)
             }
             return
@@ -342,6 +351,18 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     // -----------------------------------------------------------------------
 
     /**
+     * True when [pkg] is not a browser but at least one synthesized host for this package
+     * is affected by current domain rules (block or allow list). Drives WINDOW_CONTENT_CHANGED
+     * probing without scanning every installed app.
+     */
+    private fun shouldProbeNativeDomainRules(pkg: String): Boolean {
+        if (WebsiteBlockingSupport.isBrowserPackage(pkg)) return false
+        val hosts = DomainLinkedNativeApps.hostsForNativeDomainCheck(pkg)
+        if (hosts.isEmpty()) return false
+        return hosts.any { ActiveBlockingState.shouldBlockDomain(it) }
+    }
+
+    /**
      * Check whether [pkg] should be blocked and act on it.
      * Instead of force-closing, launches the [BlockerActivity] overlay.
      */
@@ -359,6 +380,14 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         val websiteCtx = WebsiteBlockingSupport.isBrowserPackage(pkg) && ActiveBlockingState.hasDomainRules()
         if (websiteCtx && maybeBlockWebsite(pkg, event)) {
             return
+        }
+
+        // App Links often open the native app (Instagram, TikTok, …) so there is no browser URL to
+        // scrape — still enforce domain rules using known package ↔ host associations.
+        if (ActiveBlockingState.hasDomainRules() && !WebsiteBlockingSupport.isBrowserPackage(pkg)) {
+            if (maybeBlockNativeAppForDomainRules(pkg)) {
+                return
+            }
         }
 
         // Enforcement cadence: avoid duplicate app-level blocks during event storms
@@ -415,6 +444,18 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         if (!ActiveBlockingState.shouldBlockDomain(host)) return false
 
         showWebsiteBlockOverlay(pkg, host)
+        return true
+    }
+
+    /**
+     * When a first-party app is foregrounded and one of its canonical hosts is blocked (or not
+     * on the allow-list), show the same overlay as in-browser website blocking.
+     */
+    private fun maybeBlockNativeAppForDomainRules(pkg: String): Boolean {
+        val hosts = DomainLinkedNativeApps.hostsForNativeDomainCheck(pkg)
+        if (hosts.isEmpty()) return false
+        val matched = hosts.firstOrNull { ActiveBlockingState.shouldBlockDomain(it) } ?: return false
+        showWebsiteBlockOverlay(pkg, matched)
         return true
     }
 

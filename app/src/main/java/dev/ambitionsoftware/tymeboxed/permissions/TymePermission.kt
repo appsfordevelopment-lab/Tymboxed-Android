@@ -38,8 +38,8 @@ enum class TymePermission(
     OVERLAY(
         key = "overlay",
         title = "Display over other apps",
-        description = "Shows the shield overlay when a blocked app is dismissed.",
-        required = true,
+        description = "Optional. Blocking uses a full-screen activity; enable this only if a future feature needs a system overlay.",
+        required = false,
     ),
     EXACT_ALARMS(
         key = "exact_alarms",

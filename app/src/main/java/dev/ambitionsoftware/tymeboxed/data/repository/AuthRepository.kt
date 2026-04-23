@@ -1,6 +1,9 @@
 package dev.ambitionsoftware.tymeboxed.data.repository
 
+import android.util.Base64
+import android.util.Log
 import com.google.gson.Gson
+import com.google.gson.JsonParser
 import dev.ambitionsoftware.tymeboxed.BuildConfig
 import java.net.HttpURLConnection
 import java.net.URL
@@ -23,6 +26,10 @@ class AuthRepository @Inject constructor() {
     private val gson = Gson()
     private val baseUrl = BuildConfig.TYMEBOXED_API_BASE_URL.trimEnd('/')
 
+    companion object {
+        private const val TAG = "AuthRepository"
+    }
+
     suspend fun sendOtp(email: String): Result<Unit> = withContext(Dispatchers.IO) {
         postAuth("/api/auth/send-otp", mapOf("email" to email))
     }
@@ -32,7 +39,42 @@ class AuthRepository @Inject constructor() {
     }
 
     suspend fun signInWithGoogle(idToken: String): Result<Unit> = withContext(Dispatchers.IO) {
-        postAuth("/api/auth/google", mapOf("idToken" to idToken))
+        if (BuildConfig.DEBUG) {
+            decodeJwtAudience(idToken)?.let { aud ->
+                Log.d(TAG, "Google ID token aud (must match API server config)=$aud")
+            }
+        }
+        val result = postAuth("/api/auth/google", mapOf("idToken" to idToken))
+        if (BuildConfig.DEBUG && result.isFailure) {
+            val msg = result.exceptionOrNull()?.message.orEmpty()
+            if (msg.contains("Invalid or expired Google token", ignoreCase = true)) {
+                val aud = decodeJwtAudience(idToken)
+                return@withContext Result.failure(
+                    Exception(
+                        "$msg\n\n(Debug) This JWT’s audience is:\n$aud\n\n" +
+                            "api.tymeboxed.app only accepts tokens whose Web client ID matches its server " +
+                            "configuration. Use that exact ID in GOOGLE_WEB_CLIENT_ID, or update the API env " +
+                            "to verify this Web client ID.",
+                    ),
+                )
+            }
+        }
+        result
+    }
+
+    /** JWT `aud` claim — the OAuth Web client ID used when the token was minted. */
+    private fun decodeJwtAudience(idToken: String): String? {
+        val parts = idToken.split('.')
+        if (parts.size < 2) return null
+        val json = try {
+            val decoded = Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+            String(decoded, Charsets.UTF_8)
+        } catch (_: Exception) {
+            return null
+        }
+        return runCatching {
+            JsonParser.parseString(json).asJsonObject.get("aud")?.asString
+        }.getOrNull()
     }
 
     private fun postAuth(path: String, payload: Map<String, String>): Result<Unit> {

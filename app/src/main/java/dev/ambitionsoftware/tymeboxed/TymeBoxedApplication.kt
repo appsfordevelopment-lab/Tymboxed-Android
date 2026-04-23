@@ -5,8 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
 import dev.ambitionsoftware.tymeboxed.data.db.TymeBoxedDatabase
+import dev.ambitionsoftware.tymeboxed.di.PermissionsEntryPoint
 import dev.ambitionsoftware.tymeboxed.service.ActiveBlockingState
 import dev.ambitionsoftware.tymeboxed.service.SessionBlockerService
 import kotlinx.coroutines.CoroutineScope
@@ -28,6 +30,11 @@ class TymeBoxedApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         createSessionNotificationChannel()
+        // Re-read permission flags after channel creation; cold start must match system state
+        // before any Compose screen reads [PermissionsCoordinator].
+        EntryPointAccessors.fromApplication(this, PermissionsEntryPoint::class.java)
+            .permissionsCoordinator()
+            .refresh()
         rehydrateBlockingState()
     }
 

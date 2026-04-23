@@ -6,11 +6,14 @@ import android.nfc.Tag
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.os.Handler
+import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import dagger.hilt.android.AndroidEntryPoint
 import dev.ambitionsoftware.tymeboxed.data.prefs.AppPreferences
+import dev.ambitionsoftware.tymeboxed.permissions.PermissionsCoordinator
 import dev.ambitionsoftware.tymeboxed.ui.navigation.TymeBoxedNavHost
 import dev.ambitionsoftware.tymeboxed.ui.theme.TbTheme
 import javax.inject.Inject
@@ -29,6 +32,9 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var appPreferences: AppPreferences
+    @Inject lateinit var permissionsCoordinator: PermissionsCoordinator
+
+    private val permissionRecheckHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,6 +46,18 @@ class MainActivity : ComponentActivity() {
         }
 
         handleNfcIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        permissionsCoordinator.refresh()
+        // System sometimes updates Secure settings / AppOps slightly after resume.
+        permissionRecheckHandler.postDelayed({ permissionsCoordinator.refresh() }, 400L)
+    }
+
+    override fun onDestroy() {
+        permissionRecheckHandler.removeCallbacksAndMessages(null)
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {

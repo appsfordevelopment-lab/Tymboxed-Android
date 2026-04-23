@@ -6,6 +6,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.CommonStatusCodes
 
 object GoogleSignInHelper {
 
@@ -32,6 +33,16 @@ object GoogleSignInHelper {
             // GoogleSignInStatusCodes.SIGN_IN_CANCELLED
             if (e.statusCode == 12501) {
                 Result.failure(CancelledException())
+            } else if (e.statusCode == CommonStatusCodes.DEVELOPER_ERROR) {
+                Result.failure(
+                    DeveloperConfigException(
+                        "Google Sign-In is misconfigured (error 10). In Google Cloud Console " +
+                            "(APIs & Services → Credentials), add an Android OAuth client whose " +
+                            "package name matches this build (debug: dev.ambitionsoftware.tymeboxed.debug) " +
+                            "and whose SHA-1 is from ./gradlew :app:signingReport. " +
+                            "Keep using the Web client ID in GOOGLE_WEB_CLIENT_ID.",
+                    ),
+                )
             } else {
                 Result.failure(Exception(e.message ?: "Google sign-in failed (${e.statusCode})"))
             }
@@ -39,4 +50,6 @@ object GoogleSignInHelper {
     }
 
     class CancelledException : Exception("Sign-in cancelled")
+
+    class DeveloperConfigException(message: String) : Exception(message)
 }

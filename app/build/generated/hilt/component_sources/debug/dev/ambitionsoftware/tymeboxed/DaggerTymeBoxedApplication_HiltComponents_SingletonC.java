@@ -419,41 +419,42 @@ public final class DaggerTymeBoxedApplication_HiltComponents_SingletonC {
     @CanIgnoreReturnValue
     private MainActivity injectMainActivity2(MainActivity instance) {
       MainActivity_MembersInjector.injectAppPreferences(instance, singletonCImpl.appPreferencesProvider.get());
+      MainActivity_MembersInjector.injectPermissionsCoordinator(instance, singletonCImpl.permissionsCoordinatorProvider.get());
       return instance;
     }
 
     @IdentifierNameString
     private static final class LazyClassKeyProvider {
-      static String dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileSessionsViewModel";
-
-      static String dev_ambitionsoftware_tymeboxed_ui_screens_intro_IntroAuthViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.intro.IntroAuthViewModel";
-
-      static String dev_ambitionsoftware_tymeboxed_ui_screens_settings_SettingsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.settings.SettingsViewModel";
+      static String dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel = "dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel";
 
       static String dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileEditViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileEditViewModel";
 
-      static String dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.insights.ProfileInsightsViewModel";
+      static String dev_ambitionsoftware_tymeboxed_ui_screens_intro_IntroAuthViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.intro.IntroAuthViewModel";
+
+      static String dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileSessionsViewModel";
+
+      static String dev_ambitionsoftware_tymeboxed_ui_screens_settings_SettingsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.settings.SettingsViewModel";
 
       static String dev_ambitionsoftware_tymeboxed_ui_screens_home_HomeViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.home.HomeViewModel";
 
       static String dev_ambitionsoftware_tymeboxed_ui_theme_ThemeViewModel = "dev.ambitionsoftware.tymeboxed.ui.theme.ThemeViewModel";
 
-      static String dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel = "dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel";
+      static String dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.insights.ProfileInsightsViewModel";
 
       @KeepFieldType
-      ProfileSessionsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel2;
-
-      @KeepFieldType
-      IntroAuthViewModel dev_ambitionsoftware_tymeboxed_ui_screens_intro_IntroAuthViewModel2;
-
-      @KeepFieldType
-      SettingsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_settings_SettingsViewModel2;
+      PermissionsViewModel dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel2;
 
       @KeepFieldType
       ProfileEditViewModel dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileEditViewModel2;
 
       @KeepFieldType
-      ProfileInsightsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel2;
+      IntroAuthViewModel dev_ambitionsoftware_tymeboxed_ui_screens_intro_IntroAuthViewModel2;
+
+      @KeepFieldType
+      ProfileSessionsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel2;
+
+      @KeepFieldType
+      SettingsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_settings_SettingsViewModel2;
 
       @KeepFieldType
       HomeViewModel dev_ambitionsoftware_tymeboxed_ui_screens_home_HomeViewModel2;
@@ -462,7 +463,7 @@ public final class DaggerTymeBoxedApplication_HiltComponents_SingletonC {
       ThemeViewModel dev_ambitionsoftware_tymeboxed_ui_theme_ThemeViewModel2;
 
       @KeepFieldType
-      PermissionsViewModel dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel2;
+      ProfileInsightsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel2;
     }
   }
 
@@ -526,27 +527,24 @@ public final class DaggerTymeBoxedApplication_HiltComponents_SingletonC {
 
     @IdentifierNameString
     private static final class LazyClassKeyProvider {
-      static String dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileSessionsViewModel";
-
-      static String dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileEditViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileEditViewModel";
+      static String dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.insights.ProfileInsightsViewModel";
 
       static String dev_ambitionsoftware_tymeboxed_ui_screens_home_HomeViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.home.HomeViewModel";
 
       static String dev_ambitionsoftware_tymeboxed_ui_screens_settings_SettingsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.settings.SettingsViewModel";
 
-      static String dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.insights.ProfileInsightsViewModel";
+      static String dev_ambitionsoftware_tymeboxed_ui_screens_intro_IntroAuthViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.intro.IntroAuthViewModel";
 
       static String dev_ambitionsoftware_tymeboxed_ui_theme_ThemeViewModel = "dev.ambitionsoftware.tymeboxed.ui.theme.ThemeViewModel";
 
-      static String dev_ambitionsoftware_tymeboxed_ui_screens_intro_IntroAuthViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.intro.IntroAuthViewModel";
-
       static String dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel = "dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel";
 
-      @KeepFieldType
-      ProfileSessionsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel2;
+      static String dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileSessionsViewModel";
+
+      static String dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileEditViewModel = "dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileEditViewModel";
 
       @KeepFieldType
-      ProfileEditViewModel dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileEditViewModel2;
+      ProfileInsightsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel2;
 
       @KeepFieldType
       HomeViewModel dev_ambitionsoftware_tymeboxed_ui_screens_home_HomeViewModel2;
@@ -555,16 +553,19 @@ public final class DaggerTymeBoxedApplication_HiltComponents_SingletonC {
       SettingsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_settings_SettingsViewModel2;
 
       @KeepFieldType
-      ProfileInsightsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_insights_ProfileInsightsViewModel2;
+      IntroAuthViewModel dev_ambitionsoftware_tymeboxed_ui_screens_intro_IntroAuthViewModel2;
 
       @KeepFieldType
       ThemeViewModel dev_ambitionsoftware_tymeboxed_ui_theme_ThemeViewModel2;
 
       @KeepFieldType
-      IntroAuthViewModel dev_ambitionsoftware_tymeboxed_ui_screens_intro_IntroAuthViewModel2;
+      PermissionsViewModel dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel2;
 
       @KeepFieldType
-      PermissionsViewModel dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel2;
+      ProfileSessionsViewModel dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileSessionsViewModel2;
+
+      @KeepFieldType
+      ProfileEditViewModel dev_ambitionsoftware_tymeboxed_ui_screens_profile_ProfileEditViewModel2;
     }
 
     private static final class SwitchingProvider<T> implements Provider<T> {
@@ -694,6 +695,8 @@ public final class DaggerTymeBoxedApplication_HiltComponents_SingletonC {
 
     private Provider<TymeBoxedDatabase> provideDatabaseProvider;
 
+    private Provider<PermissionsCoordinator> permissionsCoordinatorProvider;
+
     private Provider<AppPreferences> appPreferencesProvider;
 
     private Provider<ProfileRepository> profileRepositoryProvider;
@@ -701,8 +704,6 @@ public final class DaggerTymeBoxedApplication_HiltComponents_SingletonC {
     private Provider<SessionRepository> sessionRepositoryProvider;
 
     private Provider<AuthRepository> authRepositoryProvider;
-
-    private Provider<PermissionsCoordinator> permissionsCoordinatorProvider;
 
     private Provider<ThemeController> themeControllerProvider;
 
@@ -723,11 +724,11 @@ public final class DaggerTymeBoxedApplication_HiltComponents_SingletonC {
     @SuppressWarnings("unchecked")
     private void initialize(final ApplicationContextModule applicationContextModuleParam) {
       this.provideDatabaseProvider = DoubleCheck.provider(new SwitchingProvider<TymeBoxedDatabase>(singletonCImpl, 0));
-      this.appPreferencesProvider = DoubleCheck.provider(new SwitchingProvider<AppPreferences>(singletonCImpl, 1));
-      this.profileRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<ProfileRepository>(singletonCImpl, 2));
-      this.sessionRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<SessionRepository>(singletonCImpl, 3));
-      this.authRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<AuthRepository>(singletonCImpl, 4));
-      this.permissionsCoordinatorProvider = DoubleCheck.provider(new SwitchingProvider<PermissionsCoordinator>(singletonCImpl, 5));
+      this.permissionsCoordinatorProvider = DoubleCheck.provider(new SwitchingProvider<PermissionsCoordinator>(singletonCImpl, 1));
+      this.appPreferencesProvider = DoubleCheck.provider(new SwitchingProvider<AppPreferences>(singletonCImpl, 2));
+      this.profileRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<ProfileRepository>(singletonCImpl, 3));
+      this.sessionRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<SessionRepository>(singletonCImpl, 4));
+      this.authRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<AuthRepository>(singletonCImpl, 5));
       this.themeControllerProvider = DoubleCheck.provider(new SwitchingProvider<ThemeController>(singletonCImpl, 6));
     }
 
@@ -753,6 +754,11 @@ public final class DaggerTymeBoxedApplication_HiltComponents_SingletonC {
     @Override
     public TymeBoxedDatabase database() {
       return provideDatabaseProvider.get();
+    }
+
+    @Override
+    public PermissionsCoordinator permissionsCoordinator() {
+      return permissionsCoordinatorProvider.get();
     }
 
     @Override
@@ -783,20 +789,20 @@ public final class DaggerTymeBoxedApplication_HiltComponents_SingletonC {
           case 0: // dev.ambitionsoftware.tymeboxed.data.db.TymeBoxedDatabase 
           return (T) DatabaseModule_ProvideDatabaseFactory.provideDatabase(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
-          case 1: // dev.ambitionsoftware.tymeboxed.data.prefs.AppPreferences 
+          case 1: // dev.ambitionsoftware.tymeboxed.permissions.PermissionsCoordinator 
+          return (T) new PermissionsCoordinator(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+
+          case 2: // dev.ambitionsoftware.tymeboxed.data.prefs.AppPreferences 
           return (T) new AppPreferences(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
-          case 2: // dev.ambitionsoftware.tymeboxed.data.repository.ProfileRepository 
+          case 3: // dev.ambitionsoftware.tymeboxed.data.repository.ProfileRepository 
           return (T) new ProfileRepository(singletonCImpl.profileDao());
 
-          case 3: // dev.ambitionsoftware.tymeboxed.data.repository.SessionRepository 
+          case 4: // dev.ambitionsoftware.tymeboxed.data.repository.SessionRepository 
           return (T) new SessionRepository(singletonCImpl.sessionDao());
 
-          case 4: // dev.ambitionsoftware.tymeboxed.data.repository.AuthRepository 
+          case 5: // dev.ambitionsoftware.tymeboxed.data.repository.AuthRepository 
           return (T) new AuthRepository();
-
-          case 5: // dev.ambitionsoftware.tymeboxed.permissions.PermissionsCoordinator 
-          return (T) new PermissionsCoordinator(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
           case 6: // dev.ambitionsoftware.tymeboxed.ui.theme.ThemeController 
           return (T) new ThemeController(singletonCImpl.appPreferencesProvider.get());

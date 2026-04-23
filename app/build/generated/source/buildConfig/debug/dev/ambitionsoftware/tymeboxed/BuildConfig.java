@@ -10,5 +10,7 @@ public final class BuildConfig {
   public static final int VERSION_CODE = 1;
   public static final String VERSION_NAME = "0.1.0-debug";
   // Field from default config.
+  public static final String GOOGLE_WEB_CLIENT_ID = "788398277214-iqna62voaf8sj64fi7it0d341hvqgeoa.apps.googleusercontent.com";
+  // Field from default config.
   public static final String TYMEBOXED_API_BASE_URL = "https://api.tymeboxed.app";
 }
