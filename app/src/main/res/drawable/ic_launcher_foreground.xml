@@ -1,11 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Placeholder launcher foreground: a white "T" monogram centered on the safe zone. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M38,38 L70,38 L70,46 L58,46 L58,74 L50,74 L50,46 L38,46 Z" />
-</vector>
+<!-- Foreground layer: project logo (tyme_boxed_logo), inset for adaptive-icon safe zone. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/tyme_boxed_logo"
+    android:insetLeft="12dp"
+    android:insetTop="12dp"
+    android:insetRight="12dp"
+    android:insetBottom="12dp" />

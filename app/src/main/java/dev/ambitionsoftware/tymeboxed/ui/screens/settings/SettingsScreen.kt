@@ -59,12 +59,14 @@ import dev.ambitionsoftware.tymeboxed.data.db.dao.TagDao
 import dev.ambitionsoftware.tymeboxed.data.repository.ProfileRepository
 import dev.ambitionsoftware.tymeboxed.data.repository.SessionRepository
 import dev.ambitionsoftware.tymeboxed.service.ActiveBlockingState
-import dev.ambitionsoftware.tymeboxed.permissions.PermissionIntents
 import dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel
-import dev.ambitionsoftware.tymeboxed.permissions.TymePermission
-import dev.ambitionsoftware.tymeboxed.ui.components.PermissionRow
 import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCard
 import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCardDivider
+import androidx.compose.ui.res.stringResource
+import dev.ambitionsoftware.tymeboxed.R
+import androidx.compose.material.icons.filled.Shield
+import dev.ambitionsoftware.tymeboxed.ui.components.SettingsNavigationRow
+import dev.ambitionsoftware.tymeboxed.ui.screens.inapp.InAppBlockingSettingsRow
 import dev.ambitionsoftware.tymeboxed.ui.theme.AccentColor
 import dev.ambitionsoftware.tymeboxed.ui.theme.AccentColors
 import dev.ambitionsoftware.tymeboxed.ui.theme.ThemeController
@@ -112,20 +114,19 @@ class SettingsViewModel @Inject constructor(
 /**
  * Settings screen — mirrors iOS [`SettingsView`] card layout:
  *   1. Theme (Appearance) card — accent swatch + dropdown of all 15 colours.
- *   2. About card — version + blocking status + "Made in Hyderabad India".
- *   3. Permissions card — one [PermissionRow] per [TymePermission]. Android-only.
- *   4. Troubleshooting card — reset blocking state.
- *   5. Danger card — delete all data.
+ *   2. In-app blocking row, Permissions &amp; reliability row.
+ *   3. About card — version + blocking status + "Made in Hyderabad India".
+ *   4. Danger card — delete all data. Full permissions + troubleshooting live on [PermissionsScreen].
  */
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenFullPermissions: () -> Unit,
+    onOpenInAppBlocking: () -> Unit,
 ) {
     val settingsVm: SettingsViewModel = hiltViewModel()
     val permissionsVm: PermissionsViewModel = hiltViewModel()
     val accent by settingsVm.accent.collectAsState()
-    val states by permissionsVm.states.collectAsState()
     val allRequiredGranted by permissionsVm.allRequiredGranted.collectAsState()
 
     // Refresh permission states on resume.
@@ -175,6 +176,15 @@ fun SettingsScreen(
                 onSelect = settingsVm::selectAccent,
             )
 
+            InAppBlockingSettingsRow(onClick = onOpenInAppBlocking)
+
+            SettingsNavigationRow(
+                title = stringResource(R.string.settings_permissions_reliability_title),
+                subtitle = stringResource(R.string.settings_permissions_reliability_subtitle),
+                icon = Icons.Filled.Shield,
+                onClick = onOpenFullPermissions,
+            )
+
             AboutCard(
                 accessAuthorized = allRequiredGranted,
                 onBuyDevice = {
@@ -187,17 +197,6 @@ fun SettingsScreen(
                         )
                     }
                 },
-            )
-
-            PermissionsCard(
-                states = states,
-                isNfcAvailable = permissionsVm.isNfcAvailable,
-                onGrantClick = { perm -> openPermissionIntent(ctx, perm) },
-                onOpenFull = onOpenFullPermissions,
-            )
-
-            TroubleshootingCard(
-                onResetBlockingState = settingsVm::resetBlockingState,
             )
 
             DangerCard(
@@ -427,64 +426,6 @@ private fun LabelRow(
 }
 
 @Composable
-private fun PermissionsCard(
-    states: Map<TymePermission, Boolean>,
-    isNfcAvailable: Boolean,
-    onGrantClick: (TymePermission) -> Unit,
-    onOpenFull: () -> Unit,
-) {
-    SettingsCard(title = "Permissions", elevation = 0.dp) {
-        val perms = TymePermission.entries
-        perms.forEachIndexed { idx, perm ->
-            val nfcUnavailable = perm == TymePermission.NFC && !isNfcAvailable
-            PermissionRow(
-                permission = perm,
-                granted = states[perm] == true,
-                onGrantClick = { onGrantClick(perm) },
-                unavailable = nfcUnavailable,
-            )
-            if (idx < perms.lastIndex) SettingsCardDivider()
-        }
-        SettingsCardDivider()
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onOpenFull() }
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Open full permissions screen",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f),
-            )
-        }
-    }
-}
-
-@Composable
-private fun TroubleshootingCard(onResetBlockingState: () -> Unit) {
-    SettingsCard(title = "Troubleshooting", elevation = 0.dp) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onResetBlockingState() }
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Reset Blocking State",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-    }
-}
-
-@Composable
 private fun DangerCard(onDeleteAllData: () -> Unit) {
     SettingsCard(title = null, elevation = 0.dp) {
         Row(
@@ -512,8 +453,3 @@ private fun DangerCard(onDeleteAllData: () -> Unit) {
     }
 }
 
-private fun openPermissionIntent(context: Context, perm: TymePermission) {
-    runCatching {
-        context.startActivity(PermissionIntents.intentFor(context, perm))
-    }
-}

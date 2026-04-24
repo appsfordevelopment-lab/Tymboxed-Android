@@ -13,4 +13,36 @@
     <!-- Foreground service notification strings -->
     <string name="session_channel_name">Active Session</string>
     <string name="session_channel_description">Ongoing notification shown while a focus session is running.</string>
+
+    <!-- In-app blocking (Switchly-aligned policy / UI) -->
+    <string name="in_app_content_blocked_title">%1$s blocked</string>
+    <string name="in_app_content_blocked_message">Tyme Boxed is blocking this section: %1$s. You can change this in Settings → In-app blocking.</string>
+    <string name="in_app_limit_reached_title">In-app time limit reached</string>
+    <string name="in_app_limit_reached_message">Your daily in-app budget (%1$d min) is used up for today. Try again tomorrow or raise the limit in Settings.</string>
+    <string name="in_app_label_shorts">Shorts</string>
+    <string name="in_app_label_search">Search</string>
+    <string name="in_app_label_comments">Comments</string>
+    <string name="in_app_label_pip">Picture-in-picture</string>
+    <string name="in_app_label_reels">Reels</string>
+    <string name="in_app_label_explore_tab">Explore</string>
+    <string name="in_app_label_stories">Stories</string>
+    <string name="in_app_label_home">Home</string>
+    <string name="in_app_label_grok">Grok</string>
+    <string name="in_app_label_notifications">Notifications</string>
+    <string name="in_app_label_map">Map</string>
+    <string name="in_app_label_spotlight">Spotlight</string>
+    <string name="in_app_label_following">Following</string>
+
+    <string name="in_app_blocking_title">In-app blocking</string>
+    <string name="in_app_blocking_subtitle">Block parts of apps like Shorts, Reels, and Explore.</string>
+    <string name="in_app_limit_card_title">In-app blocking limit</string>
+    <string name="in_app_limit_card_body">Daily time limit across enabled in-app sections. If no limit is set, enabled sections are blocked immediately (until a global budget is set).</string>
+    <string name="in_app_limit_status_label">In-app limit</string>
+    <string name="in_app_no_limit">No limit</string>
+    <string name="in_app_minutes_value">%1$d min</string>
+    <string name="in_app_set_daily_limit">Set daily limit</string>
+    <string name="in_app_footer_hint">Turn on Tyme Boxed in Accessibility. Detection uses on-screen text and tabs (heuristics vary by app and language; inspired by the Switchly public reference).</string>
+
+    <string name="settings_permissions_reliability_title">Permissions &amp; reliability</string>
+    <string name="settings_permissions_reliability_subtitle">Permissions and troubleshooting</string>
 </resources>

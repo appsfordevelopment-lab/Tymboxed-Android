@@ -12,6 +12,8 @@ import android.os.PowerManager
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import dev.ambitionsoftware.tymeboxed.service.inapp.InAppBlockingHandler
+import dev.ambitionsoftware.tymeboxed.service.inapp.InAppToggleKeys
 
 /**
  * Core app-blocking engine, modeled after Switchly's SwitchlyAccessibilityService.
@@ -69,6 +71,8 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     // UsageEvents foreground refresh cadence
     private var lastTopRefreshAt: Long = 0L
     private val TOP_REFRESH_INTERVAL_MS = 3_000L
+
+    private var lastInAppUsageAt: Long = System.currentTimeMillis()
 
     // -----------------------------------------------------------------------
     // Service lifecycle
@@ -166,6 +170,11 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
                 // Poll UsageEvents as a tertiary fallback
                 refreshTopPackageViaUsageEvents()
+
+                val tNow = System.currentTimeMillis()
+                val d = (tNow - lastInAppUsageAt).coerceIn(0L, 5_000L)
+                lastInAppUsageAt = tNow
+                InAppBlockingHandler.onUsageTick(applicationContext, currentTopPkg, d)
             } catch (e: Throwable) {
                 Log.w(TAG, "Tick error: ${e.message}")
             }
@@ -196,6 +205,7 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         }
         if (rootPkg.isNullOrBlank() || rootPkg == packageName) return
         if (rootPkg != currentTopPkg) {
+            InAppBlockingHandler.onAppTransition(rootPkg, System.currentTimeMillis())
             currentTopPkg = rootPkg
             maybeBlock(rootPkg, event = null)
         }
@@ -226,6 +236,7 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
             handler.post {
                 if (top != currentTopPkg && top != packageName) {
+                    InAppBlockingHandler.onAppTransition(top, System.currentTimeMillis())
                     currentTopPkg = top
                     maybeBlock(top, event = null)
                 }
@@ -293,6 +304,9 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         lastEventType = type
 
         // Update foreground tracking
+        if (pkg != currentTopPkg) {
+            InAppBlockingHandler.onAppTransition(pkg, now)
+        }
         currentTopPkg = pkg
 
         if (!WebsiteBlockingSupport.isBrowserPackage(pkg)) {
@@ -352,6 +366,13 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         // Don't enforce when screen is off or device is locked
         if (!pm.isInteractive) return
         if (km?.isKeyguardLocked == true) return
+
+        if (InAppToggleKeys.isSupportedApp(pkg)) {
+            val root = currentRoot(event)
+            if (root != null && InAppBlockingHandler.maybeBlock(this, pkg, event, root)) {
+                return
+            }
+        }
 
         // Website rules run **before** the app-level enforcement throttle. Otherwise the first
         // probe often sees an empty URL bar and later updates within 150ms are dropped, so we

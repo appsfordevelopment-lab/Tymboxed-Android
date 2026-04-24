@@ -179,6 +179,23 @@ class BlockerActivity : ComponentActivity() {
             )
         }
 
+        /** In-app section blocking (e.g. Shorts, Reels) from Settings, independent of focus session. */
+        fun showInApp(
+            context: Context,
+            pkg: String,
+            appLabel: String,
+            title: String,
+            message: String,
+        ) {
+            show(
+                context = context,
+                pkg = pkg,
+                label = appLabel,
+                headline = title,
+                body = message,
+            )
+        }
+
         /** Send user to the home screen. */
         fun sendHome(context: Context) {
             val home = Intent(Intent.ACTION_MAIN).apply {

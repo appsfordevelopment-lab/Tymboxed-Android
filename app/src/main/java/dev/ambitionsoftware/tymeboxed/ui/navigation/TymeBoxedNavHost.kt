@@ -13,6 +13,7 @@ import dev.ambitionsoftware.tymeboxed.ui.screens.home.HomeScreen
 import dev.ambitionsoftware.tymeboxed.ui.screens.intro.IntroScreen
 import dev.ambitionsoftware.tymeboxed.ui.screens.permissions.PermissionsScreen
 import dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileEditScreen
+import dev.ambitionsoftware.tymeboxed.ui.screens.inapp.InAppBlockingScreen
 import dev.ambitionsoftware.tymeboxed.ui.screens.settings.SettingsScreen
 
 /**
@@ -63,7 +64,12 @@ fun TymeBoxedNavHost(
             SettingsScreen(
                 onBack = { navController.popBackStack() },
                 onOpenFullPermissions = { navController.navigate(Routes.PERMISSIONS) },
+                onOpenInAppBlocking = { navController.navigate(Routes.IN_APP_BLOCKING) },
             )
+        }
+
+        composable(Routes.IN_APP_BLOCKING) {
+            InAppBlockingScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.PERMISSIONS) {

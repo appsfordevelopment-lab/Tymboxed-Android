@@ -1,6 +1,7 @@
 package dev.ambitionsoftware.tymeboxed.ui.screens.permissions
 
 import android.content.Context
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,11 +14,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -26,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -34,9 +39,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import dev.ambitionsoftware.tymeboxed.permissions.PermissionIntents
 import dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel
 import dev.ambitionsoftware.tymeboxed.permissions.TymePermission
+import dev.ambitionsoftware.tymeboxed.R
 import dev.ambitionsoftware.tymeboxed.ui.components.PermissionRow
 import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCard
 import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCardDivider
+import dev.ambitionsoftware.tymeboxed.ui.screens.settings.SettingsViewModel
 
 /**
  * Standalone permissions screen — Android equivalent of iOS
@@ -47,11 +54,13 @@ import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCardDivider
  * previously denied one can re-request with more context than the card row
  * in Settings provides.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PermissionsScreen(
     onBack: () -> Unit,
 ) {
     val vm: PermissionsViewModel = hiltViewModel()
+    val settingsVm: SettingsViewModel = hiltViewModel()
     val states by vm.states.collectAsState()
     val ctx = LocalContext.current
 
@@ -67,22 +76,28 @@ fun PermissionsScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                }
-                Text(
-                    text = "Permissions",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-            }
+            TopAppBar(
+                title = {
+                    Text(
+                        text = stringResource(R.string.settings_permissions_reliability_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+            )
         },
     ) { padding ->
         Column(
@@ -90,28 +105,11 @@ fun PermissionsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp)
+                .padding(top = 16.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(
-                text = "Connect Tyme Boxed to Android",
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 16.dp),
-            )
-            Text(
-                text = "Unlike iOS's single Screen Time prompt, Android has a " +
-                    "handful of narrow permissions. Tyme Boxed needs the ones " +
-                    "below so it can detect when a blocked app comes to the " +
-                    "foreground, keep the session notification running, and " +
-                    "survive phone reboots.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp),
-            )
-
-            SettingsCard(title = "Required") {
+            SettingsCard {
                 TymePermission.requiredPermissions.forEachIndexed { idx, perm ->
                     val nfcUnavailable = perm == TymePermission.NFC && !vm.isNfcAvailable
                     PermissionRow(
@@ -123,6 +121,24 @@ fun PermissionsScreen(
                     if (idx < TymePermission.requiredPermissions.lastIndex) {
                         SettingsCardDivider()
                     }
+                }
+            }
+
+            SettingsCard(title = "Troubleshooting", elevation = 0.dp) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { settingsVm.resetBlockingState() }
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Reset blocking state",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
 
