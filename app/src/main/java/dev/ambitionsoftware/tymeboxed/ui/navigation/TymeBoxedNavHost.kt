@@ -3,11 +3,16 @@ package dev.ambitionsoftware.tymeboxed.ui.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import dev.ambitionsoftware.tymeboxed.ui.screens.profile.BlockedAppsPickerScreen
+import dev.ambitionsoftware.tymeboxed.ui.screens.profile.BlockedDomainsPickerScreen
+import dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileEditViewModel
 import dev.ambitionsoftware.tymeboxed.data.prefs.AppPreferences
 import dev.ambitionsoftware.tymeboxed.ui.screens.home.HomeScreen
 import dev.ambitionsoftware.tymeboxed.ui.screens.intro.IntroScreen
@@ -93,6 +98,46 @@ fun TymeBoxedNavHost(
                         popUpTo(Routes.profileEdit(profileId)) { inclusive = true }
                     }
                 },
+                onOpenBlockedApps = {
+                    navController.navigate(Routes.profileEditSelectApps(profileId))
+                },
+                onOpenBlockedDomains = {
+                    navController.navigate(Routes.profileEditSelectDomains(profileId))
+                },
+            )
+        }
+
+        composable(
+            route = Routes.PROFILE_EDIT_SELECT_APPS,
+            arguments = listOf(
+                navArgument("profileId") { type = NavType.StringType },
+            ),
+        ) { childEntry ->
+            val profileId = childEntry.arguments?.getString("profileId") ?: "new"
+            val parentEntry = remember(childEntry) {
+                navController.getBackStackEntry(Routes.profileEdit(profileId))
+            }
+            val vm: ProfileEditViewModel = hiltViewModel(parentEntry)
+            BlockedAppsPickerScreen(
+                viewModel = vm,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = Routes.PROFILE_EDIT_SELECT_DOMAINS,
+            arguments = listOf(
+                navArgument("profileId") { type = NavType.StringType },
+            ),
+        ) { childEntry ->
+            val profileId = childEntry.arguments?.getString("profileId") ?: "new"
+            val parentEntry = remember(childEntry) {
+                navController.getBackStackEntry(Routes.profileEdit(profileId))
+            }
+            val vm: ProfileEditViewModel = hiltViewModel(parentEntry)
+            BlockedDomainsPickerScreen(
+                viewModel = vm,
+                onBack = { navController.popBackStack() },
             )
         }
     }

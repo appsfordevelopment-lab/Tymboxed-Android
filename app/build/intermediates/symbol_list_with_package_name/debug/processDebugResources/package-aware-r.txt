@@ -265,6 +265,17 @@ string accessibility_service_label
 string accessibility_service_summary
 string androidx_startup
 string app_name
+string blocked_apps_loading
+string blocked_apps_no_match
+string blocked_apps_picker_allow_mode_hint
+string blocked_apps_picker_title
+string blocked_apps_search_hint
+string blocked_domains_add_label
+string blocked_domains_empty_hint
+string blocked_domains_no_match
+string blocked_domains_picker_allow_mode_hint
+string blocked_domains_picker_title
+string blocked_domains_search_hint
 string call_notification_answer_action
 string call_notification_answer_video_action
 string call_notification_decline_action
@@ -272,6 +283,7 @@ string call_notification_hang_up_action
 string call_notification_incoming_text
 string call_notification_ongoing_text
 string call_notification_screening_text
+string cd_remove_domain
 string close_drawer
 string close_sheet
 string common_google_play_services_enable_button
@@ -380,6 +392,7 @@ string m3c_time_picker_period_toggle_description
 string m3c_time_picker_pm
 string m3c_tooltip_long_press_label
 string m3c_tooltip_pane_description
+string nav_back
 string navigation_menu
 string not_selected
 string range_end

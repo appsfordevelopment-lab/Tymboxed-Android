@@ -1,5 +1,6 @@
 package dev.ambitionsoftware.tymeboxed.ui.screens.settings;
 
+import android.content.Context;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
 import dagger.internal.QualifierMetadata;
@@ -12,7 +13,7 @@ import javax.annotation.processing.Generated;
 import javax.inject.Provider;
 
 @ScopeMetadata
-@QualifierMetadata
+@QualifierMetadata("dagger.hilt.android.qualifiers.ApplicationContext")
 @DaggerGenerated
 @Generated(
     value = "dagger.internal.codegen.ComponentProcessor",
@@ -26,6 +27,8 @@ import javax.inject.Provider;
     "cast"
 })
 public final class SettingsViewModel_Factory implements Factory<SettingsViewModel> {
+  private final Provider<Context> appContextProvider;
+
   private final Provider<ThemeController> themeControllerProvider;
 
   private final Provider<SessionRepository> sessionRepositoryProvider;
@@ -34,9 +37,11 @@ public final class SettingsViewModel_Factory implements Factory<SettingsViewMode
 
   private final Provider<TagDao> tagDaoProvider;
 
-  public SettingsViewModel_Factory(Provider<ThemeController> themeControllerProvider,
+  public SettingsViewModel_Factory(Provider<Context> appContextProvider,
+      Provider<ThemeController> themeControllerProvider,
       Provider<SessionRepository> sessionRepositoryProvider,
       Provider<ProfileRepository> profileRepositoryProvider, Provider<TagDao> tagDaoProvider) {
+    this.appContextProvider = appContextProvider;
     this.themeControllerProvider = themeControllerProvider;
     this.sessionRepositoryProvider = sessionRepositoryProvider;
     this.profileRepositoryProvider = profileRepositoryProvider;
@@ -45,17 +50,18 @@ public final class SettingsViewModel_Factory implements Factory<SettingsViewMode
 
   @Override
   public SettingsViewModel get() {
-    return newInstance(themeControllerProvider.get(), sessionRepositoryProvider.get(), profileRepositoryProvider.get(), tagDaoProvider.get());
+    return newInstance(appContextProvider.get(), themeControllerProvider.get(), sessionRepositoryProvider.get(), profileRepositoryProvider.get(), tagDaoProvider.get());
   }
 
-  public static SettingsViewModel_Factory create(Provider<ThemeController> themeControllerProvider,
+  public static SettingsViewModel_Factory create(Provider<Context> appContextProvider,
+      Provider<ThemeController> themeControllerProvider,
       Provider<SessionRepository> sessionRepositoryProvider,
       Provider<ProfileRepository> profileRepositoryProvider, Provider<TagDao> tagDaoProvider) {
-    return new SettingsViewModel_Factory(themeControllerProvider, sessionRepositoryProvider, profileRepositoryProvider, tagDaoProvider);
+    return new SettingsViewModel_Factory(appContextProvider, themeControllerProvider, sessionRepositoryProvider, profileRepositoryProvider, tagDaoProvider);
   }
 
-  public static SettingsViewModel newInstance(ThemeController themeController,
+  public static SettingsViewModel newInstance(Context appContext, ThemeController themeController,
       SessionRepository sessionRepository, ProfileRepository profileRepository, TagDao tagDao) {
-    return new SettingsViewModel(themeController, sessionRepository, profileRepository, tagDao);
+    return new SettingsViewModel(appContext, themeController, sessionRepository, profileRepository, tagDao);
   }
 }

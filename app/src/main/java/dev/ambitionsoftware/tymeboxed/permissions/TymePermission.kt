@@ -21,8 +21,8 @@ enum class TymePermission(
     ),
     USAGE_STATS(
         key = "usage_stats",
-        title = "Usage Access",
-        description = "Reads which app is in the foreground so blocking can react instantly.",
+        title = "App usage access",
+        description = "Turn on “App usage access” for Tyme Boxed so it can see which app is in the foreground and enforce blocking. Android will open the list — find Tyme Boxed and allow it.",
         required = true,
     ),
     NOTIFICATIONS(

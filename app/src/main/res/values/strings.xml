@@ -1,5 +1,18 @@
 <resources>
     <string name="app_name">Tyme Boxed</string>
+    <string name="nav_back">Back</string>
+    <string name="blocked_apps_picker_title">Select apps to restrict</string>
+    <string name="blocked_apps_search_hint">Search apps</string>
+    <string name="blocked_apps_loading">Loading apps…</string>
+    <string name="blocked_apps_no_match">No apps match your search</string>
+    <string name="blocked_apps_picker_allow_mode_hint">Allow mode is on — pick apps to allow; everything else is blocked.</string>
+    <string name="blocked_domains_picker_title">Select domains to restrict</string>
+    <string name="blocked_domains_search_hint">Search added domains</string>
+    <string name="blocked_domains_add_label">Add domain</string>
+    <string name="blocked_domains_picker_allow_mode_hint">Domain allow mode is on — only listed sites stay allowed; all other web traffic is treated as out of focus.</string>
+    <string name="blocked_domains_no_match">No domains match your search</string>
+    <string name="blocked_domains_empty_hint">No domains yet. Type a host (e.g. example.com) and tap + to add it.</string>
+    <string name="cd_remove_domain">Remove domain</string>
 
     <!-- Accessibility service surface strings (shown in system Settings > Accessibility) -->
     <string name="accessibility_service_label">Tyme Boxed App Blocker</string>

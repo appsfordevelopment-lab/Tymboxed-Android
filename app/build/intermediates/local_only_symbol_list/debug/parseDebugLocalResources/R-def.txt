@@ -13,6 +13,18 @@ string accessibility_service_description
 string accessibility_service_label
 string accessibility_service_summary
 string app_name
+string blocked_apps_loading
+string blocked_apps_no_match
+string blocked_apps_picker_allow_mode_hint
+string blocked_apps_picker_title
+string blocked_apps_search_hint
+string blocked_domains_add_label
+string blocked_domains_empty_hint
+string blocked_domains_no_match
+string blocked_domains_picker_allow_mode_hint
+string blocked_domains_picker_title
+string blocked_domains_search_hint
+string cd_remove_domain
 string in_app_blocking_subtitle
 string in_app_blocking_title
 string in_app_content_blocked_message
@@ -39,6 +51,7 @@ string in_app_limit_status_label
 string in_app_minutes_value
 string in_app_no_limit
 string in_app_set_daily_limit
+string nav_back
 string session_channel_description
 string session_channel_name
 string settings_permissions_reliability_subtitle

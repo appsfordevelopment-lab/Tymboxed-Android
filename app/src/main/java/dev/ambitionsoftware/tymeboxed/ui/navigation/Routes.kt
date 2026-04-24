@@ -11,7 +11,15 @@ object Routes {
     const val IN_APP_BLOCKING = "in_app_blocking"
     const val PERMISSIONS = "permissions"
 
-    /** Placeholder for Phase 2 — profile create / edit. */
+    /** Profile create / edit. */
     const val PROFILE_EDIT = "profile_edit/{profileId}"
     fun profileEdit(profileId: String = "new") = "profile_edit/$profileId"
+
+    /** Full-screen app multiselect; shares [ProfileEditViewModel] with [PROFILE_EDIT]. */
+    const val PROFILE_EDIT_SELECT_APPS = "profile_edit/{profileId}/select_apps"
+    fun profileEditSelectApps(profileId: String) = "profile_edit/$profileId/select_apps"
+
+    /** Full-screen domain list + add; shares [ProfileEditViewModel] with [PROFILE_EDIT]. */
+    const val PROFILE_EDIT_SELECT_DOMAINS = "profile_edit/{profileId}/select_domains"
+    fun profileEditSelectDomains(profileId: String) = "profile_edit/$profileId/select_domains"
 }

@@ -59,6 +59,7 @@ import dev.ambitionsoftware.tymeboxed.data.db.dao.TagDao
 import dev.ambitionsoftware.tymeboxed.data.repository.ProfileRepository
 import dev.ambitionsoftware.tymeboxed.data.repository.SessionRepository
 import dev.ambitionsoftware.tymeboxed.service.ActiveBlockingState
+import dev.ambitionsoftware.tymeboxed.service.SessionBlockerService
 import dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel
 import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCard
 import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCardDivider
@@ -70,6 +71,7 @@ import dev.ambitionsoftware.tymeboxed.ui.screens.inapp.InAppBlockingSettingsRow
 import dev.ambitionsoftware.tymeboxed.ui.theme.AccentColor
 import dev.ambitionsoftware.tymeboxed.ui.theme.AccentColors
 import dev.ambitionsoftware.tymeboxed.ui.theme.ThemeController
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -78,6 +80,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val themeController: ThemeController,
     private val sessionRepository: SessionRepository,
     private val profileRepository: ProfileRepository,
@@ -98,6 +101,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             ActiveBlockingState.deactivate()
             sessionRepository.resetActive()
+            appContext.startService(SessionBlockerService.stopIntent(appContext))
         }
     }
 
@@ -105,6 +109,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             ActiveBlockingState.deactivate()
             sessionRepository.resetActive()
+            appContext.startService(SessionBlockerService.stopIntent(appContext))
             profileRepository.deleteAll()
             tagDao.deleteAll()
         }

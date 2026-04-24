@@ -2,6 +2,7 @@ package dev.ambitionsoftware.tymeboxed.permissions
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 
 /**
@@ -22,7 +23,7 @@ object PermissionIntents {
                 Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).clearTop()
 
             TymePermission.USAGE_STATS ->
-                Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).clearTop()
+                usageAccessSettingsIntent(context)
 
             TymePermission.NOTIFICATIONS ->
                 Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
@@ -38,5 +39,22 @@ object PermissionIntents {
     private fun Intent.clearTop(): Intent {
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return this
+    }
+
+    /**
+     * Opens the “App usage access” / special-access screen. Many devices support
+     * `package:` [Uri] so the user lands on the right row for this app; if no
+     * activity resolves, fall back to the generic usage-access page.
+     */
+    private fun usageAccessSettingsIntent(context: Context): Intent {
+        val withPkg = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+            data = Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return if (withPkg.resolveActivity(context.packageManager) != null) {
+            withPkg
+        } else {
+            Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).clearTop()
+        }
     }
 }

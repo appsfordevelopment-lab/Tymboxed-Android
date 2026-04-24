@@ -14,6 +14,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -30,8 +32,8 @@ import dev.ambitionsoftware.tymeboxed.permissions.TymePermission
  * - Shows the human-readable title + description from [TymePermission].
  * - Left side has a status icon (green check when granted, amber warning when
  *   not) to mirror the iOS `PermissionsScreen` row affordance.
- * - Right side exposes a "Grant" / "Granted" action the caller wires up with
- *   a deep-link intent.
+ * - Right side is a [Switch] reflecting granted state; toggling calls
+ *   [onGrantClick] to open the system screen / settings for that permission.
  *
  * Required rows use an amber warning icon when not granted. Unavailable rows
  * (e.g. NFC on hardware-less devices) are muted.
@@ -105,18 +107,17 @@ fun PermissionRow(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        } else if (granted) {
-            Text(
-                text = "Granted",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         } else {
-            Text(
-                text = "Grant →",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.SemiBold,
+            val cs = MaterialTheme.colorScheme
+            Switch(
+                checked = granted,
+                onCheckedChange = { newChecked ->
+                    if (newChecked != granted) onGrantClick()
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = cs.primary,
+                    checkedTrackColor = cs.primary.copy(alpha = 0.45f),
+                ),
             )
         }
     }

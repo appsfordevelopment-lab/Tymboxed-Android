@@ -501,6 +501,71 @@ public final class SessionDao_Impl implements SessionDao {
   }
 
   @Override
+  public Flow<List<SessionEntity>> observeCompletedSince(final long sinceMs) {
+    final String _sql = "\n"
+            + "        SELECT * FROM sessions\n"
+            + "        WHERE endTime IS NOT NULL\n"
+            + "        AND endTime > startTime\n"
+            + "        AND startTime >= ?\n"
+            + "        ORDER BY startTime ASC\n"
+            + "        ";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
+    int _argIndex = 1;
+    _statement.bindLong(_argIndex, sinceMs);
+    return CoroutinesRoom.createFlow(__db, false, new String[] {"sessions"}, new Callable<List<SessionEntity>>() {
+      @Override
+      @NonNull
+      public List<SessionEntity> call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+          final int _cursorIndexOfProfileId = CursorUtil.getColumnIndexOrThrow(_cursor, "profileId");
+          final int _cursorIndexOfStartTime = CursorUtil.getColumnIndexOrThrow(_cursor, "startTime");
+          final int _cursorIndexOfEndTime = CursorUtil.getColumnIndexOrThrow(_cursor, "endTime");
+          final int _cursorIndexOfIsPauseActive = CursorUtil.getColumnIndexOrThrow(_cursor, "isPauseActive");
+          final int _cursorIndexOfPauseStartTime = CursorUtil.getColumnIndexOrThrow(_cursor, "pauseStartTime");
+          final List<SessionEntity> _result = new ArrayList<SessionEntity>(_cursor.getCount());
+          while (_cursor.moveToNext()) {
+            final SessionEntity _item;
+            final String _tmpId;
+            _tmpId = _cursor.getString(_cursorIndexOfId);
+            final String _tmpProfileId;
+            _tmpProfileId = _cursor.getString(_cursorIndexOfProfileId);
+            final long _tmpStartTime;
+            _tmpStartTime = _cursor.getLong(_cursorIndexOfStartTime);
+            final Long _tmpEndTime;
+            if (_cursor.isNull(_cursorIndexOfEndTime)) {
+              _tmpEndTime = null;
+            } else {
+              _tmpEndTime = _cursor.getLong(_cursorIndexOfEndTime);
+            }
+            final boolean _tmpIsPauseActive;
+            final int _tmp;
+            _tmp = _cursor.getInt(_cursorIndexOfIsPauseActive);
+            _tmpIsPauseActive = _tmp != 0;
+            final Long _tmpPauseStartTime;
+            if (_cursor.isNull(_cursorIndexOfPauseStartTime)) {
+              _tmpPauseStartTime = null;
+            } else {
+              _tmpPauseStartTime = _cursor.getLong(_cursorIndexOfPauseStartTime);
+            }
+            _item = new SessionEntity(_tmpId,_tmpProfileId,_tmpStartTime,_tmpEndTime,_tmpIsPauseActive,_tmpPauseStartTime);
+            _result.add(_item);
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+        }
+      }
+
+      @Override
+      protected void finalize() {
+        _statement.release();
+      }
+    });
+  }
+
+  @Override
   public Object countCompletedForProfile(final String profileId,
       final Continuation<? super Integer> $completion) {
     final String _sql = "SELECT COUNT(*) FROM sessions WHERE profileId = ? AND endTime IS NOT NULL";

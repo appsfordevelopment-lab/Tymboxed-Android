@@ -59,7 +59,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -118,6 +117,7 @@ import dev.ambitionsoftware.tymeboxed.domain.model.Session
 import dev.ambitionsoftware.tymeboxed.domain.model.strategyInfoById
 import dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
@@ -136,6 +136,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -172,6 +173,24 @@ class HomeViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = ActivityChartType.MONTHLY,
     )
+
+    /** Start of local day 120 days ago — enough for monthly + 4-week charts. */
+    private val activityHistoryStartMs: Long = run {
+        val z = ZoneId.systemDefault()
+        LocalDate.now(z).minusDays(120).atStartOfDay(z).toInstant().toEpochMilli()
+    }
+
+    /**
+     * Total focus minutes per local calendar day (all profiles), from completed sessions.
+     */
+    val activityMinutesByLocalDay: StateFlow<Map<LocalDate, Float>> =
+        sessionRepository.observeCompletedSince(activityHistoryStartMs)
+            .map { sessions -> aggregateSessionMinutesByLocalDay(sessions) }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = emptyMap(),
+            )
 
     fun setActivityChartVisible(visible: Boolean) {
         viewModelScope.launch { appPreferences.setActivityChartVisible(visible) }
@@ -259,14 +278,29 @@ class HomeViewModel @Inject constructor(
     }
 }
 
+/** Sums (end − start) of completed sessions per local calendar day of [Session.startTime]. */
+private fun aggregateSessionMinutesByLocalDay(sessions: List<Session>): Map<LocalDate, Float> {
+    if (sessions.isEmpty()) return emptyMap()
+    val zone = ZoneId.systemDefault()
+    val out = mutableMapOf<LocalDate, Float>()
+    for (s in sessions) {
+        val end = s.endTime ?: continue
+        if (end <= s.startTime) continue
+        val day = Instant.ofEpochMilli(s.startTime).atZone(zone).toLocalDate()
+        val m = (end - s.startTime) / 60_000f
+        if (m <= 0f) continue
+        out[day] = (out[day] ?: 0f) + m
+    }
+    return out
+}
+
 /**
  * Home screen — Phase 1 skeleton.
  *
  * Layout mirrors iOS `HomeView.swift:68-107`:
  *   - Top row: `AppTitle` ("Tyme Boxed") on the left + settings gear on the right.
  *   - Body: permissions banner if any required permission is missing; then
- *     profile list or an empty-state card.
- *   - FAB (+): navigates to the profile-edit route (placeholder for now).
+ *     profile list or an empty-state card (tap empty state to create a profile).
  *
  * Phase 2 will replace the empty-state card with real `ProfileCard`
  * composables and wire the "Start Session" flow. Phase 3 adds the active-session
@@ -285,6 +319,7 @@ fun HomeScreen(
     val sessionCounts by vm.sessionCounts.collectAsState()
     val activityChartVisible by vm.activityChartVisible.collectAsState()
     val activityChartType by vm.activityChartType.collectAsState()
+    val activityMinutesByLocalDay by vm.activityMinutesByLocalDay.collectAsState()
     val allGranted by permissionsVm.allRequiredGranted.collectAsState()
 
     var showManageChartSheet by remember { mutableStateOf(false) }
@@ -374,15 +409,6 @@ fun HomeScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = homeBg,
-            floatingActionButton = {
-                FloatingActionButton(
-                    onClick = onCreateProfile,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Create profile")
-                }
-            },
         ) { padding ->
             Column(
                 modifier = Modifier
@@ -457,6 +483,7 @@ fun HomeScreen(
                                 showChart = activityChartVisible,
                                 chartType = activityChartType,
                                 onManage = { showManageChartSheet = true },
+                                minutesByLocalDay = activityMinutesByLocalDay,
                             )
                             ProfileRegionHeader(onManage = { showProfilesSheet = true })
                             ProfileList(
@@ -472,7 +499,7 @@ fun HomeScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(80.dp)) // room for FAB
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
 
@@ -652,6 +679,7 @@ private fun ActivitySection(
     showChart: Boolean,
     chartType: String,
     onManage: () -> Unit,
+    minutesByLocalDay: Map<LocalDate, Float>,
 ) {
     val cs = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -672,7 +700,10 @@ private fun ActivitySection(
             )
         }
         if (showChart) {
-            ActivityHeatmapCard(chartType = chartType)
+            ActivityHeatmapCard(
+                chartType = chartType,
+                minutesByLocalDay = minutesByLocalDay,
+            )
         } else {
             ActivityChartHiddenPlaceholder()
         }
@@ -1169,17 +1200,22 @@ private val activityDayAxisFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("EEE d")
 
 @Composable
-private fun ActivityHeatmapCard(chartType: String) {
+private fun ActivityHeatmapCard(
+    chartType: String,
+    minutesByLocalDay: Map<LocalDate, Float>,
+) {
     when (chartType) {
-        ActivityChartType.WEEKLY -> ActivityWeeklyChartCard()
-        ActivityChartType.FOUR_WEEK -> ActivityFourWeekHeatmapCard()
-        ActivityChartType.MONTHLY -> ActivityMonthlyGridCard()
-        else -> ActivityMonthlyGridCard()
+        ActivityChartType.WEEKLY -> ActivityWeeklyChartCard(minutesByLocalDay = minutesByLocalDay)
+        ActivityChartType.FOUR_WEEK -> ActivityFourWeekHeatmapCard(minutesByLocalDay = minutesByLocalDay)
+        ActivityChartType.MONTHLY -> ActivityMonthlyGridCard(minutesByLocalDay = minutesByLocalDay)
+        else -> ActivityMonthlyGridCard(minutesByLocalDay = minutesByLocalDay)
     }
 }
 
 @Composable
-private fun ActivityWeeklyChartCard() {
+private fun ActivityWeeklyChartCard(
+    minutesByLocalDay: Map<LocalDate, Float>,
+) {
     val cs = MaterialTheme.colorScheme
     val isDark = isSystemInDarkTheme()
     val cardShape = RoundedCornerShape(22.dp)
@@ -1192,7 +1228,9 @@ private fun ActivityWeeklyChartCard() {
         (0..6).map { weekStart.plusDays(it.toLong()) }
     }
     val todayIndex = remember(days, today) { days.indexOf(today).coerceIn(0, 6) }
-    val minutesPerDay = remember { FloatArray(7) { 0f } }
+    val minutesPerDay = remember(days, minutesByLocalDay) {
+        FloatArray(7) { i -> minutesByLocalDay[days[i]] ?: 0f }
+    }
     val avgMinutes = remember(minutesPerDay) { minutesPerDay.average().toFloat() }
     val maxMinutes = remember(minutesPerDay) {
         (minutesPerDay.maxOrNull() ?: 0f).coerceAtLeast(1f)
@@ -1288,9 +1326,10 @@ private fun ActivityWeeklyChartCard() {
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.End,
             ) {
-                repeat(4) {
+                repeat(4) { row ->
+                    val t = 1f - row / 3f
                     Text(
-                        text = formatAvgFocusMinutes(avgMinutes),
+                        text = formatAvgFocusMinutes(maxMinutes * t),
                         style = MaterialTheme.typography.labelSmall,
                         color = cs.onSurfaceVariant,
                         fontSize = 9.sp,
@@ -1302,7 +1341,9 @@ private fun ActivityWeeklyChartCard() {
 }
 
 @Composable
-private fun ActivityFourWeekHeatmapCard() {
+private fun ActivityFourWeekHeatmapCard(
+    minutesByLocalDay: Map<LocalDate, Float>,
+) {
     val cs = MaterialTheme.colorScheme
     val isDark = isSystemInDarkTheme()
     val cardShape = RoundedCornerShape(22.dp)
@@ -1320,7 +1361,9 @@ private fun ActivityFourWeekHeatmapCard() {
     val zone = remember { ZoneId.systemDefault() }
     val today = remember(zone) { LocalDate.now(zone) }
     val windowStart = remember(today) { today.minusDays(27) }
-    val minutesPerDay = remember { FloatArray(28) { 0f } }
+    val minutesPerDay = remember(windowStart, minutesByLocalDay) {
+        FloatArray(28) { i -> minutesByLocalDay[windowStart.plusDays(i.toLong())] ?: 0f }
+    }
     val cellIdle = cs.surfaceVariant.copy(alpha = if (isDark) 0.55f else 0.85f)
     val cellToday = Color(0xFFC4A77D)
 
@@ -1406,7 +1449,9 @@ private fun ActivityFourWeekHeatmapCard() {
 }
 
 @Composable
-private fun ActivityMonthlyGridCard() {
+private fun ActivityMonthlyGridCard(
+    minutesByLocalDay: Map<LocalDate, Float>,
+) {
     val cs = MaterialTheme.colorScheme
     val isDark = isSystemInDarkTheme()
     val cardShape = RoundedCornerShape(22.dp)
@@ -1432,6 +1477,13 @@ private fun ActivityMonthlyGridCard() {
 
     val cellIdle = cs.surfaceVariant.copy(alpha = if (isDark) 0.55f else 0.85f)
     val cellToday = Color(0xFFC4A77D)
+
+    fun bucketColorMins(minutes: Float): Color = when {
+        minutes < 1f -> Color(0xFF3A3A3C)
+        minutes < 180f -> Color(0xFF8B7355)
+        minutes < 300f -> Color(0xFFC4A77D)
+        else -> Color(0xFFE8D4B8)
+    }
 
     Column(
         modifier = Modifier
@@ -1464,11 +1516,17 @@ private fun ActivityMonthlyGridCard() {
                                 val day = idx - leading + 1
                                 val date = month.atDay(day)
                                 val isToday = date == today
+                                val mins = minutesByLocalDay[date] ?: 0f
+                                val fill = when {
+                                    isToday && mins < 1f -> cellToday
+                                    mins < 1f -> cellIdle
+                                    else -> bucketColorMins(mins)
+                                }
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .clip(cellShape)
-                                        .background(if (isToday) cellToday else cellIdle),
+                                        .background(fill),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Text(

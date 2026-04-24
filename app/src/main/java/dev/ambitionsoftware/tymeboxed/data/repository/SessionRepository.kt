@@ -49,4 +49,10 @@ class SessionRepository @Inject constructor(
 
     fun observeSessionsForProfile(profileId: String): Flow<List<Session>> =
         sessionDao.observeForProfile(profileId).map { list -> list.map { it.toDomain() } }
+
+    /**
+     * Completed sessions (all profiles) with [Session.startTime] &gt;= [sinceMs], for home Activity charts.
+     */
+    fun observeCompletedSince(sinceMs: Long): Flow<List<Session>> =
+        sessionDao.observeCompletedSince(sinceMs).map { list -> list.map { it.toDomain() } }
 }

@@ -1,7 +1,6 @@
 package dev.ambitionsoftware.tymeboxed.ui.screens.profile
 
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -11,8 +10,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,12 +37,9 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Nfc
 import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -76,8 +70,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import dev.ambitionsoftware.tymeboxed.domain.model.StrategyInfo
 import dev.ambitionsoftware.tymeboxed.domain.model.availableStrategies
 import dev.ambitionsoftware.tymeboxed.ui.components.ActionButton
@@ -92,6 +84,8 @@ fun ProfileEditScreen(
     profileId: String,
     onBack: () -> Unit,
     onNavigateToProfile: (String) -> Unit = {},
+    onOpenBlockedApps: () -> Unit = {},
+    onOpenBlockedDomains: () -> Unit = {},
 ) {
     val vm: ProfileEditViewModel = hiltViewModel()
     val state by vm.state.collectAsState()
@@ -198,7 +192,7 @@ fun ProfileEditScreen(
                     onAllowModeChange = vm::onAllowModeChange,
                     selectedPackages = state.blockedPackages,
                     installedApps = state.installedApps,
-                    onToggleApp = vm::onToggleApp,
+                    onOpenAppPicker = onOpenBlockedApps,
                 )
 
                 // 3. Blocked domains
@@ -206,8 +200,7 @@ fun ProfileEditScreen(
                     isAllowModeDomains = state.isAllowModeDomains,
                     onAllowModeDomainsChange = vm::onAllowModeDomainsChange,
                     domains = state.domains,
-                    onAddDomain = vm::onAddDomain,
-                    onRemoveDomain = vm::onRemoveDomain,
+                    onOpenDomainPicker = onOpenBlockedDomains,
                 )
 
                 // 4. Schedule (UI parity with iOS; scheduling logic TBD)
@@ -682,17 +675,15 @@ private fun AppPickerSection(
     onAllowModeChange: (Boolean) -> Unit,
     selectedPackages: Set<String>,
     installedApps: List<InstalledApp>,
-    onToggleApp: (String) -> Unit,
+    onOpenAppPicker: () -> Unit,
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) }
     val selectedCount = selectedPackages.size
 
     SettingsCard(title = "Blocked Apps", elevation = 0.dp) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { expanded = !expanded }
+                .clickable { onOpenAppPicker() }
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -755,156 +746,23 @@ private fun AppPickerSection(
                 onCheckedChange = onAllowModeChange,
             )
         }
-
-        if (expanded) {
-            SettingsCardDivider()
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search apps") },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        cursorColor = MaterialTheme.colorScheme.primary,
-                    ),
-                )
-            }
-
-            val filtered = if (searchQuery.isBlank()) installedApps
-            else installedApps.filter {
-                it.label.contains(searchQuery, ignoreCase = true) ||
-                    it.packageName.contains(searchQuery, ignoreCase = true)
-            }
-
-            if (filtered.isEmpty()) {
-                Text(
-                    text = if (installedApps.isEmpty()) "Loading apps…"
-                    else "No apps match your search",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp),
-                )
-            } else {
-                filtered.forEach { app ->
-                    AppRow(
-                        app = app,
-                        isSelected = selectedPackages.contains(app.packageName),
-                        onToggle = { onToggleApp(app.packageName) },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AppRow(
-    app: InstalledApp,
-    isSelected: Boolean,
-    onToggle: () -> Unit,
-) {
-    val context = LocalContext.current
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onToggle() }
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // App icon
-        val iconDrawable = remember(app.packageName) {
-            try {
-                context.packageManager.getApplicationIcon(app.packageName)
-            } catch (_: PackageManager.NameNotFoundException) {
-                null
-            }
-        }
-        if (iconDrawable != null) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(iconDrawable)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = app.label,
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            )
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = app.label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = app.packageName,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        Checkbox(
-            checked = isSelected,
-            onCheckedChange = { onToggle() },
-            colors = CheckboxDefaults.colors(
-                checkedColor = MaterialTheme.colorScheme.primary,
-            ),
-        )
     }
 }
 
 // ─── Domains ─────────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DomainSection(
     isAllowModeDomains: Boolean,
     onAllowModeDomainsChange: (Boolean) -> Unit,
     domains: List<String>,
-    onAddDomain: (String) -> Unit,
-    onRemoveDomain: (String) -> Unit,
+    onOpenDomainPicker: () -> Unit,
 ) {
-    var newDomain by remember { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) }
-
     SettingsCard(title = "Blocked Domains", elevation = 0.dp) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { expanded = !expanded }
+                .clickable { onOpenDomainPicker() }
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -961,100 +819,6 @@ private fun DomainSection(
                 description = "Pick domains to allow and block everything else. This will erase any other selection you've made.",
                 checked = isAllowModeDomains,
                 onCheckedChange = onAllowModeDomainsChange,
-            )
-        }
-
-        if (expanded) {
-            SettingsCardDivider()
-            if (domains.isNotEmpty()) {
-                FlowRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    domains.forEach { domain ->
-                        DomainChip(
-                            domain = domain,
-                            onRemove = { onRemoveDomain(domain) },
-                        )
-                    }
-                }
-                SettingsCardDivider()
-            }
-            SettingsCardRow {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedTextField(
-                        value = newDomain,
-                        onValueChange = { newDomain = it },
-                        placeholder = { Text("example.com") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent,
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            cursorColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(
-                        onClick = {
-                            onAddDomain(newDomain)
-                            newDomain = ""
-                        },
-                    ) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = "Add domain",
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DomainChip(
-    domain: String,
-    onRemove: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(20.dp),
-            )
-            .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = domain,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        IconButton(
-            onClick = onRemove,
-            modifier = Modifier.size(24.dp),
-        ) {
-            Icon(
-                Icons.Default.Close,
-                contentDescription = "Remove",
-                modifier = Modifier.size(14.dp),
-                tint = MaterialTheme.colorScheme.primary,
             )
         }
     }

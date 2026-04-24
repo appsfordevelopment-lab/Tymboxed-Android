@@ -3,7 +3,6 @@ package dev.ambitionsoftware.tymeboxed.permissions
 import android.Manifest
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.AppOpsManager
-import android.app.usage.UsageStatsManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
@@ -11,6 +10,7 @@ import android.nfc.NfcAdapter
 import android.os.Build
 import android.os.Process
 import android.provider.Settings
+import android.util.Log
 import android.view.accessibility.AccessibilityManager
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -162,27 +162,17 @@ class PermissionsCoordinator @Inject constructor(
                 context.packageName,
             )
         }
-        if (mode == AppOpsManager.MODE_ALLOWED) return true
-        // OEMs sometimes leave AppOp as MODE_DEFAULT even after the user enabled Usage Access.
-        return probeUsageStatsPermissionActuallyWorks()
-    }
-
-    /**
-     * [AppOpsManager] can lie on some ROMs; [UsageStatsManager.queryUsageStats] throws
-     * [SecurityException] when access is really denied.
-     */
-    private fun probeUsageStatsPermissionActuallyWorks(): Boolean {
-        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
-            ?: return false
-        val end = System.currentTimeMillis()
-        val start = (end - 1000L * 60 * 60 * 2).coerceAtLeast(0L)
-        return try {
-            @Suppress("DEPRECATION")
-            usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, end)
-            true
-        } catch (_: SecurityException) {
-            false
+        // Only MODE_ALLOWED means the user turned on “App usage access” for this app.
+        // Do not use [UsageStatsManager.queryUsageStats] as a probe: it often returns an
+        // empty list without throwing when access is denied, which incorrectly looked “granted”.
+        val granted = mode == AppOpsManager.MODE_ALLOWED
+        if (!granted && Log.isLoggable("PermCoordinator", Log.DEBUG)) {
+            Log.d(
+                "PermCoordinator",
+                "USAGE_STATS mode=$mode (need MODE_ALLOWED=${AppOpsManager.MODE_ALLOWED})",
+            )
         }
+        return granted
     }
 
     private fun isNotificationsGranted(): Boolean {

@@ -38,6 +38,21 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE endTime IS NOT NULL ORDER BY endTime DESC LIMIT 50")
     fun observeRecentCompleted(): Flow<List<SessionEntity>>
 
+    /**
+     * All completed sessions since [sinceMs] (inclusive of start), any profile.
+     * Used for home Activity chart aggregation.
+     */
+    @Query(
+        """
+        SELECT * FROM sessions
+        WHERE endTime IS NOT NULL
+        AND endTime > startTime
+        AND startTime >= :sinceMs
+        ORDER BY startTime ASC
+        """,
+    )
+    fun observeCompletedSince(sinceMs: Long): Flow<List<SessionEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(session: SessionEntity)
 

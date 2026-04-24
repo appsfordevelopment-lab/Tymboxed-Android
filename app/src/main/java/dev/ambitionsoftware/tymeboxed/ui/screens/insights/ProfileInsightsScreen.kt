@@ -25,8 +25,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FormatListBulleted
-import androidx.compose.material.icons.filled.LocalCafe
-import androidx.compose.material.icons.filled.Loyalty
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -57,7 +55,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.ambitionsoftware.tymeboxed.domain.model.Profile
-import java.util.Locale
 
 private fun formatInsightDurationMinutes(totalMinutes: Int): String {
     if (totalMinutes <= 0) return "0m"
@@ -68,11 +65,6 @@ private fun formatInsightDurationMinutes(totalMinutes: Int): String {
         h > 0 -> "${h}h"
         else -> "${m}m"
     }
-}
-
-private fun formatProfileIdForSummary(id: String): String {
-    val u = id.uppercase(Locale.getDefault())
-    return if (u.length <= 10) u else "${u.take(8)}..."
 }
 
 @Composable
@@ -146,7 +138,7 @@ fun ProfileInsightsScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "This Week",
+                            text = state.periodButtonLabel,
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Medium,
                         )
@@ -156,8 +148,18 @@ fun ProfileInsightsScreen(
                         onDismissRequest = { periodMenuExpanded = false },
                     ) {
                         DropdownMenuItem(
-                            text = { Text("This Week") },
-                            onClick = { periodMenuExpanded = false },
+                            text = { Text("This week") },
+                            onClick = {
+                                viewModel.setPeriod(InsightsPeriod.THIS_WEEK)
+                                periodMenuExpanded = false
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("This month") },
+                            onClick = {
+                                viewModel.setPeriod(InsightsPeriod.THIS_MONTH)
+                                periodMenuExpanded = false
+                            },
                         )
                     }
                 }
@@ -172,7 +174,11 @@ fun ProfileInsightsScreen(
             )
 
             Text(
-                text = "Avg Focus Session",
+                text = if (state.period == InsightsPeriod.THIS_MONTH) {
+                    "Avg focus / session (this month)"
+                } else {
+                    "Avg focus / session (this week)"
+                },
                 style = MaterialTheme.typography.titleSmall,
                 color = cs.onSurfaceVariant,
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp),
@@ -244,6 +250,14 @@ fun ProfileInsightsScreen(
                         )
                     }
                 }
+                if (state.period == InsightsPeriod.THIS_MONTH) {
+                    Text(
+                        text = "Bar height is total focus time on that weekday in the current month (all weeks combined).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = cs.onSurfaceVariant.copy(alpha = 0.85f),
+                        modifier = Modifier.padding(top = 8.dp, start = 4.dp, end = 4.dp),
+                    )
+                }
             }
 
             Text(
@@ -267,7 +281,7 @@ fun ProfileInsightsScreen(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     InsightSummaryRow(
                         icon = Icons.Default.Schedule,
-                        label = "Total Focus Time",
+                        label = "Total focus time",
                         value = formatInsightDurationMinutes(state.totalFocusMinutes),
                     )
                     HorizontalDivider(
@@ -275,18 +289,9 @@ fun ProfileInsightsScreen(
                         color = cs.outline.copy(alpha = 0.2f),
                     )
                     InsightSummaryRow(
-                        icon = Icons.Default.LocalCafe,
-                        label = "Total Break Time",
-                        value = formatInsightDurationMinutes(state.totalBreakMinutes),
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        color = cs.outline.copy(alpha = 0.2f),
-                    )
-                    InsightSummaryRow(
-                        icon = Icons.Default.Loyalty,
-                        label = "Profile ID",
-                        value = formatProfileIdForSummary(profile.id),
+                        icon = Icons.Default.FormatListBulleted,
+                        label = "Completed sessions",
+                        value = state.completedSessionCount.toString(),
                     )
                 }
             }
