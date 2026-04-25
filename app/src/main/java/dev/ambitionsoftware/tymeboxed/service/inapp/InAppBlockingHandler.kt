@@ -50,36 +50,6 @@ object InAppBlockingHandler {
     }
 
     /**
-     * Called every tick while the accessibility service is running — accrues time on the
-     * current in-app surface for global daily limit math.
-     */
-    fun onUsageTick(context: android.content.Context, topPkg: String?, deltaMs: Long) {
-        if (topPkg.isNullOrBlank() || deltaMs <= 0) return
-        InAppSurfaceUsageStore.flush(context)
-        val sk = currentSurfaceKey
-        if (!sk.isNullOrBlank() && currentSurfacePkg == topPkg) {
-            InAppSurfaceUsageStore.addUsageMsToday(context, sk, deltaMs)
-        }
-    }
-
-    private fun inAppGlobalLimitMin(c: android.content.Context): Int =
-        InAppBlockingPreferencesReader.getLimitMinutes(c)
-
-    private fun inAppTotalUsageMsToday(c: android.content.Context): Long {
-        var t = 0L
-        val keys = listOf(
-            "yt:shorts",
-            "ig:reels", "ig:explore", "ig:search", "ig:stories",
-            "x:foryou", "x:search", "x:grok", "x:notifications",
-            "snap:map", "snap:stories", "snap:spotlight", "snap:following",
-        )
-        for (k in keys) {
-            t += InAppSurfaceUsageStore.getUsageMsToday(c, k)
-        }
-        return t
-    }
-
-    /**
      * @return `true` if an in-app block was applied (session / website block should not run for this pass).
      */
     fun maybeBlock(
@@ -93,9 +63,10 @@ object InAppBlockingHandler {
 
         val now = System.currentTimeMillis()
         if (now < (inAppGraceUntilByPkg[pkg] ?: 0L)) return false
-        if (!shouldThrottleEnforce(pkg, now, 80L)) return false
+        // Single cadence: two consecutive shouldThrottleEnforce() calls on the same pass
+        // would both update the same timestamp, so the second (150ms) always failed and
+        // in-app blocking never reached the per-app handlers.
 
-        val ctx = service.applicationContext
         val nowEvent = now
         if (nowEvent - (appEnteredAtByPkg[pkg] ?: 0L) > 30_000L) {
             appEnteredAtByPkg[pkg] = nowEvent
@@ -198,27 +169,12 @@ object InAppBlockingHandler {
         return count >= required.coerceAtLeast(1)
     }
 
-    private fun inAppGlobalReached(c: android.content.Context, now: Long = System.currentTimeMillis()): Boolean {
-        val m = inAppGlobalLimitMin(c)
-        if (m <= 0) return false
-        return inAppTotalUsageMsToday(c) >= m * 60_000L
-    }
-
     private fun timedBlockMsg(
         c: android.content.Context,
         toggle: Boolean,
-        surfaceKey: String,
         label: String,
     ): Pair<String, String>? {
         if (!toggle) return null
-        if (inAppGlobalReached(c)) {
-            val m = inAppGlobalLimitMin(c)
-            return c.getString(R.string.in_app_limit_reached_title) to
-                c.getString(R.string.in_app_limit_reached_message, m)
-        }
-        // No per-surface time rule in Tyme (rule 0): when global is 0, block immediately; when global
-        // is set and not reached, allow time on surface.
-        if (inAppGlobalLimitMin(c) > 0) return null
         return c.getString(R.string.in_app_content_blocked_title, label) to
             c.getString(R.string.in_app_content_blocked_message, label)
     }
@@ -329,7 +285,11 @@ object InAppBlockingHandler {
         if (isShorts) {
             currentSurfaceKey = "yt:shorts"
             currentSurfacePkg = InAppToggleKeys.YOUTUBE
-            val m = timedBlockMsg(c, prefs(c, InAppToggleKeys.KEY_BLOCK_YT_SHORTS), "yt:shorts", c.getString(R.string.in_app_label_shorts))
+            val m = timedBlockMsg(
+                c,
+                prefs(c, InAppToggleKeys.KEY_BLOCK_YT_SHORTS),
+                c.getString(R.string.in_app_label_shorts),
+            )
             if (m != null) {
                 softBlockSurface(
                     service, InAppToggleKeys.YOUTUBE, safeAppLabel(service, InAppToggleKeys.YOUTUBE), m.first, m.second, backCount = 1,
@@ -344,19 +304,19 @@ object InAppBlockingHandler {
         }
 
         if (prefs(c, InAppToggleKeys.KEY_BLOCK_YT_SEARCH) && isYouTubeSearchScreen(root, event)) {
-            val m = timedBlockMsg(c, true, "yt:search", c.getString(R.string.in_app_label_search)) ?: return false
+            val m = timedBlockMsg(c, true, c.getString(R.string.in_app_label_search)) ?: return false
             softBlockSurface(service, InAppToggleKeys.YOUTUBE, safeAppLabel(service, InAppToggleKeys.YOUTUBE), m.first, m.second, backCount = 1)
             return true
         }
         if (prefs(c, InAppToggleKeys.KEY_BLOCK_YT_COMMENTS) && isYouTubeCommentsVisible(root)) {
-            val m = timedBlockMsg(c, true, "yt:comments", c.getString(R.string.in_app_label_comments)) ?: return false
+            val m = timedBlockMsg(c, true, c.getString(R.string.in_app_label_comments)) ?: return false
             softBlockSurface(service, InAppToggleKeys.YOUTUBE, safeAppLabel(service, InAppToggleKeys.YOUTUBE), m.first, m.second, backCount = 1)
             return true
         }
         if (prefs(c, InAppToggleKeys.KEY_BLOCK_YT_PIP)) {
             val cls = event?.className?.toString().orEmpty()
             if (cls.contains("PictureInPicture", ignoreCase = true)) {
-                val m = timedBlockMsg(c, true, "yt:pip", c.getString(R.string.in_app_label_pip)) ?: return false
+                val m = timedBlockMsg(c, true, c.getString(R.string.in_app_label_pip)) ?: return false
                 softBlockSurface(service, InAppToggleKeys.YOUTUBE, safeAppLabel(service, InAppToggleKeys.YOUTUBE), m.first, m.second, backCount = 1)
                 return true
             }
@@ -427,7 +387,7 @@ object InAppBlockingHandler {
         if (storiesNow) {
             currentSurfaceKey = "ig:stories"
             currentSurfacePkg = InAppToggleKeys.INSTAGRAM
-            val m = timedBlockMsg(c, blockStories, "ig:stories", c.getString(R.string.in_app_label_stories))
+            val m = timedBlockMsg(c, blockStories, c.getString(R.string.in_app_label_stories))
             if (m != null) {
                 softBlockSurface(service, InAppToggleKeys.INSTAGRAM, safeAppLabel(service, InAppToggleKeys.INSTAGRAM), m.first, m.second, backCount = 1)
                 return true
@@ -443,7 +403,7 @@ object InAppBlockingHandler {
         if (reelsHit) {
             currentSurfaceKey = "ig:reels"
             currentSurfacePkg = InAppToggleKeys.INSTAGRAM
-            val m = timedBlockMsg(c, true, "ig:reels", c.getString(R.string.in_app_label_reels)) ?: return false
+            val m = timedBlockMsg(c, true, c.getString(R.string.in_app_label_reels)) ?: return false
             softBlockSurface(service, InAppToggleKeys.INSTAGRAM, safeAppLabel(service, InAppToggleKeys.INSTAGRAM), m.first, m.second, backCount = 2)
             return true
         }
@@ -456,7 +416,7 @@ object InAppBlockingHandler {
         if (exploreHit) {
             currentSurfaceKey = "ig:explore"
             currentSurfacePkg = InAppToggleKeys.INSTAGRAM
-            val m = timedBlockMsg(c, true, "ig:explore", c.getString(R.string.in_app_label_explore_tab)) ?: return false
+            val m = timedBlockMsg(c, true, c.getString(R.string.in_app_label_explore_tab)) ?: return false
             softBlockSurface(service, InAppToggleKeys.INSTAGRAM, safeAppLabel(service, InAppToggleKeys.INSTAGRAM), m.first, m.second, backCount = 2)
             return true
         }
@@ -469,13 +429,13 @@ object InAppBlockingHandler {
         if (searchHit) {
             currentSurfaceKey = "ig:search"
             currentSurfacePkg = InAppToggleKeys.INSTAGRAM
-            val m = timedBlockMsg(c, true, "ig:search", c.getString(R.string.in_app_label_search)) ?: return false
+            val m = timedBlockMsg(c, true, c.getString(R.string.in_app_label_search)) ?: return false
             softBlockSurface(service, InAppToggleKeys.INSTAGRAM, safeAppLabel(service, InAppToggleKeys.INSTAGRAM), m.first, m.second, backCount = 2)
             return true
         }
 
         if (blockComments && isInstagramCommentsVisible(root)) {
-            val m = timedBlockMsg(c, true, "ig:comments", c.getString(R.string.in_app_label_comments)) ?: return false
+            val m = timedBlockMsg(c, true, c.getString(R.string.in_app_label_comments)) ?: return false
             softBlockSurface(service, InAppToggleKeys.INSTAGRAM, safeAppLabel(service, InAppToggleKeys.INSTAGRAM), m.first, m.second, backCount = 1)
             return true
         }
@@ -551,7 +511,7 @@ object InAppBlockingHandler {
         if (!hit) return false
         currentSurfaceKey = surfaceKey
         currentSurfacePkg = pkg
-        val m = timedBlockMsg(service.applicationContext, true, surfaceKey, label) ?: return false
+        val m = timedBlockMsg(service.applicationContext, true, label) ?: return false
         softBlockSurface(service, pkg, safeAppLabel(service, pkg), m.first, m.second, backCount = 0)
         return true
     }
@@ -611,7 +571,7 @@ object InAppBlockingHandler {
         if (!hit) return false
         currentSurfaceKey = surfaceKey
         currentSurfacePkg = pkg
-        val m = timedBlockMsg(service.applicationContext, true, surfaceKey, label) ?: return false
+        val m = timedBlockMsg(service.applicationContext, true, label) ?: return false
         Log.d(TAG, "Snap block surface=$surfaceKey")
         softBlockSurface(service, pkg, safeAppLabel(service, pkg), m.first, m.second, backCount = 0)
         return true

@@ -9,8 +9,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -19,9 +20,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,18 +54,6 @@ fun InAppBlockingScreen(
 ) {
     val vm: InAppBlockingViewModel = hiltViewModel()
     val s by vm.state.collectAsState()
-    var showLimitDialog by remember { mutableStateOf(false) }
-
-    if (showLimitDialog) {
-        DailyLimitDialog(
-            current = s.limitMinutes,
-            onDismiss = { showLimitDialog = false },
-            onPick = { m ->
-                vm.setDailyLimit(m)
-                showLimitDialog = false
-            },
-        )
-    }
 
     Scaffold(
         topBar = {
@@ -100,50 +86,7 @@ fun InAppBlockingScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        stringResource(R.string.in_app_limit_card_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        stringResource(R.string.in_app_limit_card_body),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                stringResource(R.string.in_app_limit_status_label),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                if (s.limitMinutes <= 0) {
-                                    stringResource(R.string.in_app_no_limit)
-                                } else {
-                                    stringResource(R.string.in_app_minutes_value, s.limitMinutes)
-                                },
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                        }
-                        Button(
-                            onClick = { showLimitDialog = true },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        ) { Text(stringResource(R.string.in_app_set_daily_limit)) }
-                    }
-                }
-            }
+            InAppBlockingLimitCard()
 
             InAppAppSection(
                 title = "YouTube",
@@ -183,6 +126,42 @@ fun InAppBlockingScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(vertical = 8.dp),
             )
+        }
+    }
+}
+
+@Composable
+private fun InAppBlockingLimitCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                stringResource(R.string.in_app_blocking_limit_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                stringResource(R.string.in_app_blocking_limit_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.in_app_blocking_limit_status_label),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    stringResource(R.string.in_app_blocking_limit_value_none),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
         }
     }
 }
@@ -247,44 +226,6 @@ private fun InAppSwitchRow(
             onCheckedChange = onChecked,
         )
     }
-}
-
-@Composable
-private fun DailyLimitDialog(
-    current: Int,
-    onDismiss: () -> Unit,
-    onPick: (Int) -> Unit,
-) {
-    val options = listOf(0, 15, 30, 60, 90, 120, 180)
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.in_app_set_daily_limit)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                options.forEach { m ->
-                    val label = if (m == 0) {
-                        stringResource(R.string.in_app_no_limit)
-                    } else {
-                        stringResource(R.string.in_app_minutes_value, m)
-                    }
-                    Text(
-                        label,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onPick(m)
-                            }
-                            .padding(vertical = 12.dp),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = if (m == current) FontWeight.SemiBold else FontWeight.Normal,
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
-        },
-    )
 }
 
 /** Settings screen row: navigates to [InAppBlockingScreen]. */

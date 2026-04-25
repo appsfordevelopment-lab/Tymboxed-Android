@@ -72,6 +72,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
 
                 ActiveBlockingState.activate(
                     profileId = activeSession.profileId,
+                    profileName = profile.name,
                     blockedPackages = blockedPkgs,
                     isAllowMode = profile.isAllowMode,
                     domains = domainList,

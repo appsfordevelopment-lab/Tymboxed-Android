@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Foreground layer: project logo (tyme_boxed_logo), inset for adaptive-icon safe zone. -->
+<!-- Foreground: B.png art; inset keeps logo inside adaptive-icon safe zone. -->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
-    android:drawable="@drawable/tyme_boxed_logo"
-    android:insetLeft="12dp"
-    android:insetTop="12dp"
-    android:insetRight="12dp"
-    android:insetBottom="12dp" />
+    android:drawable="@drawable/ic_launcher_app_icon"
+    android:insetLeft="10dp"
+    android:insetTop="10dp"
+    android:insetRight="10dp"
+    android:insetBottom="10dp" />

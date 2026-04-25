@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#C4A77D</color>
+    <color name="ic_launcher_background">#FFB004</color>
     <string name="accessibility_service_description">
         Tyme Boxed needs Accessibility to detect when a blocked app is opened during a
         focus session, and send you back to the home screen. It never reads screen
@@ -21,6 +21,10 @@
     <string name="blocked_domains_picker_title">Select domains to restrict</string>
     <string name="blocked_domains_search_hint">Search added domains</string>
     <string name="cd_remove_domain">Remove domain</string>
+    <string name="in_app_blocking_limit_description">Daily time limit across enabled in-app sections. If no limit is set, enabled sections are blocked immediately.</string>
+    <string name="in_app_blocking_limit_status_label">In-app limit</string>
+    <string name="in_app_blocking_limit_title">In-app blocking limit</string>
+    <string name="in_app_blocking_limit_value_none">No limit</string>
     <string name="in_app_blocking_subtitle">Block parts of apps like Shorts, Reels, and Explore.</string>
     <string name="in_app_blocking_title">In-app blocking</string>
     <string name="in_app_content_blocked_message">Tyme Boxed is blocking this section: %1$s. You can change this in Settings → In-app blocking.</string>
@@ -39,14 +43,6 @@
     <string name="in_app_label_shorts">Shorts</string>
     <string name="in_app_label_spotlight">Spotlight</string>
     <string name="in_app_label_stories">Stories</string>
-    <string name="in_app_limit_card_body">Daily time limit across enabled in-app sections. If no limit is set, enabled sections are blocked immediately (until a global budget is set).</string>
-    <string name="in_app_limit_card_title">In-app blocking limit</string>
-    <string name="in_app_limit_reached_message">Your daily in-app budget (%1$d min) is used up for today. Try again tomorrow or raise the limit in Settings.</string>
-    <string name="in_app_limit_reached_title">In-app time limit reached</string>
-    <string name="in_app_limit_status_label">In-app limit</string>
-    <string name="in_app_minutes_value">%1$d min</string>
-    <string name="in_app_no_limit">No limit</string>
-    <string name="in_app_set_daily_limit">Set daily limit</string>
     <string name="nav_back">Back</string>
     <string name="session_channel_description">Ongoing notification shown while a focus session is running.</string>
     <string name="session_channel_name">Active Session</string>

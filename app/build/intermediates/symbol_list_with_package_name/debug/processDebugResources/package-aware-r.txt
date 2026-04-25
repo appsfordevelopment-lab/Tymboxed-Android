@@ -126,6 +126,7 @@ drawable ic_call_answer_video_low
 drawable ic_call_decline
 drawable ic_call_decline_low
 drawable ic_google_sign_in
+drawable ic_launcher_app_icon
 drawable ic_launcher_foreground
 drawable notification_action_background
 drawable notification_bg
@@ -307,6 +308,10 @@ string common_signin_button_text_long
 string default_error_message
 string default_popup_window_title
 string dropdown_menu
+string in_app_blocking_limit_description
+string in_app_blocking_limit_status_label
+string in_app_blocking_limit_title
+string in_app_blocking_limit_value_none
 string in_app_blocking_subtitle
 string in_app_blocking_title
 string in_app_content_blocked_message
@@ -325,14 +330,6 @@ string in_app_label_search
 string in_app_label_shorts
 string in_app_label_spotlight
 string in_app_label_stories
-string in_app_limit_card_body
-string in_app_limit_card_title
-string in_app_limit_reached_message
-string in_app_limit_reached_title
-string in_app_limit_status_label
-string in_app_minutes_value
-string in_app_no_limit
-string in_app_set_daily_limit
 string in_progress
 string indeterminate
 string m3c_bottom_sheet_collapse_description

@@ -40,7 +40,14 @@ class SessionBlockerService : Service() {
             }
         }
 
-        val profileName = intent?.getStringExtra(EXTRA_PROFILE_NAME) ?: "Focus Session"
+        // After process death, rehydration passes the name on the intent. If the system
+        // restarts this START_STICKY service with a null intent, Extras are missing — use
+        // in-memory [ActiveBlockingState] which is set whenever blocking activates.
+        val profileName = intent?.getStringExtra(EXTRA_PROFILE_NAME)
+            .takeUnless { it.isNullOrBlank() }
+            ?: ActiveBlockingState.current.profileName
+            .takeUnless { it.isNullOrBlank() }
+            ?: "Focus Session"
         Log.i(TAG, "SessionBlockerService started for profile: $profileName")
 
         val notification = buildNotification(profileName)

@@ -6,7 +6,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dev.ambitionsoftware.tymeboxed.service.inapp.InAppLimitStore
 import dev.ambitionsoftware.tymeboxed.service.inapp.InAppToggleKeys
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,18 +29,12 @@ class InAppBlockingViewModel @Inject constructor(
         _state.update { InAppUiState.from(app) }
     }
 
-    fun setDailyLimit(minutes: Int) = viewModelScope.launch {
-        InAppLimitStore.setLimitMinutes(app, minutes)
-        _state.update { InAppUiState.from(app) }
-    }
-
     companion object {
         private const val PREFS = "tymeboxed_inapp_toggles"
     }
 }
 
 data class InAppUiState(
-    val limitMinutes: Int,
     val blockYtShorts: Boolean,
     val blockYtSearch: Boolean,
     val blockYtComments: Boolean,
@@ -64,7 +57,6 @@ data class InAppUiState(
         fun from(ctx: android.content.Context): InAppUiState {
             val p = ctx.getSharedPreferences("tymeboxed_inapp_toggles", android.content.Context.MODE_PRIVATE)
             return InAppUiState(
-                limitMinutes = InAppLimitStore.getLimitMinutes(ctx),
                 blockYtShorts = p.getBoolean(InAppToggleKeys.KEY_BLOCK_YT_SHORTS, false),
                 blockYtSearch = p.getBoolean(InAppToggleKeys.KEY_BLOCK_YT_SEARCH, false),
                 blockYtComments = p.getBoolean(InAppToggleKeys.KEY_BLOCK_YT_COMMENTS, false),

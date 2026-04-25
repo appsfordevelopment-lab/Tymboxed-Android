@@ -15,6 +15,8 @@ object ActiveBlockingState {
     data class Snapshot(
         val isBlocking: Boolean = false,
         val profileId: String? = null,
+        /** Display name for the foreground notification; survives service restarts with a null intent. */
+        val profileName: String? = null,
         val blockedPackages: Set<String> = emptySet(),
         val isAllowMode: Boolean = false,
         /** Normalized hostnames from the active profile (see [DomainBlocking.normalize]). */
@@ -42,6 +44,7 @@ object ActiveBlockingState {
      */
     fun activate(
         profileId: String,
+        profileName: String,
         blockedPackages: Set<String>,
         isAllowMode: Boolean,
         domains: List<String> = emptyList(),
@@ -54,6 +57,7 @@ object ActiveBlockingState {
         current = Snapshot(
             isBlocking = true,
             profileId = profileId,
+            profileName = profileName,
             blockedPackages = blockedPackages,
             isAllowMode = isAllowMode,
             domains = normalizedDomains,

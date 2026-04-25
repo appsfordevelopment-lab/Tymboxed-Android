@@ -13,6 +13,4 @@ object InAppBlockingPreferencesReader {
 
     fun isEnabled(c: Context, key: String, default: Boolean = false): Boolean =
         prefs(c).getBoolean(key, default)
-
-    fun getLimitMinutes(c: Context): Int = InAppLimitStore.getLimitMinutes(c)
 }

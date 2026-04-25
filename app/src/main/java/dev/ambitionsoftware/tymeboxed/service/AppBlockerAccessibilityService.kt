@@ -72,8 +72,6 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     private var lastTopRefreshAt: Long = 0L
     private val TOP_REFRESH_INTERVAL_MS = 3_000L
 
-    private var lastInAppUsageAt: Long = System.currentTimeMillis()
-
     // -----------------------------------------------------------------------
     // Service lifecycle
     // -----------------------------------------------------------------------
@@ -171,10 +169,6 @@ class AppBlockerAccessibilityService : AccessibilityService() {
                 // Poll UsageEvents as a tertiary fallback
                 refreshTopPackageViaUsageEvents()
 
-                val tNow = System.currentTimeMillis()
-                val d = (tNow - lastInAppUsageAt).coerceIn(0L, 5_000L)
-                lastInAppUsageAt = tNow
-                InAppBlockingHandler.onUsageTick(applicationContext, currentTopPkg, d)
             } catch (e: Throwable) {
                 Log.w(TAG, "Tick error: ${e.message}")
             }

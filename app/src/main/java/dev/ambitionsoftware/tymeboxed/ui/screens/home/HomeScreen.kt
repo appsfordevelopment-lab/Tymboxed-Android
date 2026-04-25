@@ -121,8 +121,10 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
+import java.util.Locale
 import kotlin.math.roundToInt
 import dev.ambitionsoftware.tymeboxed.service.ActiveBlockingState
 import dev.ambitionsoftware.tymeboxed.service.SessionBlockerService
@@ -192,6 +194,18 @@ class HomeViewModel @Inject constructor(
                 initialValue = emptyMap(),
             )
 
+    /**
+     * Per local day, per profile, focus minutes (completed sessions) — for activity day insights.
+     */
+    val activityMinutesByProfileByLocalDay: StateFlow<Map<LocalDate, Map<String, Float>>> =
+        sessionRepository.observeCompletedSince(activityHistoryStartMs)
+            .map { sessions -> aggregateSessionMinutesByLocalDayByProfile(sessions) }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = emptyMap(),
+            )
+
     fun setActivityChartVisible(visible: Boolean) {
         viewModelScope.launch { appPreferences.setActivityChartVisible(visible) }
     }
@@ -215,6 +229,7 @@ class HomeViewModel @Inject constructor(
             val profile = profileRepository.findById(session.profileId) ?: return@launch
             ActiveBlockingState.activate(
                 profileId = session.profileId,
+                profileName = profile.name,
                 blockedPackages = profile.blockedPackages.toSet(),
                 isAllowMode = profile.isAllowMode,
                 domains = profile.domains,
@@ -248,6 +263,7 @@ class HomeViewModel @Inject constructor(
             // Activate blocking in-memory for the AccessibilityService
             ActiveBlockingState.activate(
                 profileId = profileId,
+                profileName = profile.name,
                 blockedPackages = profile.blockedPackages.toSet(),
                 isAllowMode = profile.isAllowMode,
                 domains = profile.domains,
@@ -278,7 +294,39 @@ class HomeViewModel @Inject constructor(
     }
 }
 
-/** Sums (end − start) of completed sessions per local calendar day of [Session.startTime]. */
+/**
+ * Splits each completed session across every **local calendar day** it overlaps (in [zone]),
+ * so long sessions and sessions crossing midnight add minutes to the correct days.
+ * If [byProfileIdByDay] is null, only [totalByDay] is updated.
+ */
+private fun addSessionMinutesAcrossLocalDays(
+    startMs: Long,
+    endMs: Long,
+    profileId: String,
+    zone: ZoneId,
+    totalByDay: MutableMap<LocalDate, Float>,
+    byProfileIdByDay: MutableMap<LocalDate, MutableMap<String, Float>>? = null,
+) {
+    if (endMs <= startMs) return
+    var t = startMs
+    while (t < endMs) {
+        val z = ZonedDateTime.ofInstant(Instant.ofEpochMilli(t), zone)
+        val date = z.toLocalDate()
+        val nextDayStart = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val segEnd = minOf(endMs, nextDayStart)
+        val m = (segEnd - t) / 60_000f
+        if (m > 0f) {
+            totalByDay[date] = (totalByDay[date] ?: 0f) + m
+            if (byProfileIdByDay != null) {
+                val per = byProfileIdByDay.getOrPut(date) { mutableMapOf() }
+                per[profileId] = (per[profileId] ?: 0f) + m
+            }
+        }
+        t = segEnd
+    }
+}
+
+/** Sums focus minutes per local day (all profiles). */
 private fun aggregateSessionMinutesByLocalDay(sessions: List<Session>): Map<LocalDate, Float> {
     if (sessions.isEmpty()) return emptyMap()
     val zone = ZoneId.systemDefault()
@@ -286,12 +334,28 @@ private fun aggregateSessionMinutesByLocalDay(sessions: List<Session>): Map<Loca
     for (s in sessions) {
         val end = s.endTime ?: continue
         if (end <= s.startTime) continue
-        val day = Instant.ofEpochMilli(s.startTime).atZone(zone).toLocalDate()
-        val m = (end - s.startTime) / 60_000f
-        if (m <= 0f) continue
-        out[day] = (out[day] ?: 0f) + m
+        addSessionMinutesAcrossLocalDays(s.startTime, end, s.profileId, zone, out, byProfileIdByDay = null)
     }
     return out
+}
+
+/**
+ * Sums focus minutes per local day and per [Session.profileId] (same day-splitting as totals).
+ * Used to pick the dominant profile in the day insight row.
+ */
+private fun aggregateSessionMinutesByLocalDayByProfile(
+    sessions: List<Session>,
+): Map<LocalDate, Map<String, Float>> {
+    if (sessions.isEmpty()) return emptyMap()
+    val zone = ZoneId.systemDefault()
+    val totals = mutableMapOf<LocalDate, Float>()
+    val byProfile = mutableMapOf<LocalDate, MutableMap<String, Float>>()
+    for (s in sessions) {
+        val end = s.endTime ?: continue
+        if (end <= s.startTime) continue
+        addSessionMinutesAcrossLocalDays(s.startTime, end, s.profileId, zone, totals, byProfile)
+    }
+    return byProfile.mapValues { it.value.toMap() }
 }
 
 /**
@@ -320,6 +384,7 @@ fun HomeScreen(
     val activityChartVisible by vm.activityChartVisible.collectAsState()
     val activityChartType by vm.activityChartType.collectAsState()
     val activityMinutesByLocalDay by vm.activityMinutesByLocalDay.collectAsState()
+    val activityMinutesByProfileByLocalDay by vm.activityMinutesByProfileByLocalDay.collectAsState()
     val allGranted by permissionsVm.allRequiredGranted.collectAsState()
 
     var showManageChartSheet by remember { mutableStateOf(false) }
@@ -346,6 +411,11 @@ fun HomeScreen(
             return
         }
         nfcStopPending = true
+    }
+
+    var selectedActivityDate by remember { mutableStateOf<LocalDate?>(null) }
+    LaunchedEffect(activityChartType) {
+        selectedActivityDate = null
     }
 
     LaunchedEffect(nfcPendingProfileId, profiles) {
@@ -484,6 +554,14 @@ fun HomeScreen(
                                 chartType = activityChartType,
                                 onManage = { showManageChartSheet = true },
                                 minutesByLocalDay = activityMinutesByLocalDay,
+                                minutesByProfileByLocalDay = activityMinutesByProfileByLocalDay,
+                                profiles = profiles,
+                                selectedActivityDate = selectedActivityDate,
+                                onSelectActivityDate = { d ->
+                                    selectedActivityDate =
+                                        if (selectedActivityDate == d) null else d
+                                },
+                                onViewActivityInsights = { p -> insightsProfile = p },
                             )
                             ProfileRegionHeader(onManage = { showProfilesSheet = true })
                             ProfileList(
@@ -680,6 +758,11 @@ private fun ActivitySection(
     chartType: String,
     onManage: () -> Unit,
     minutesByLocalDay: Map<LocalDate, Float>,
+    minutesByProfileByLocalDay: Map<LocalDate, Map<String, Float>>,
+    profiles: List<Profile>,
+    selectedActivityDate: LocalDate?,
+    onSelectActivityDate: (LocalDate) -> Unit,
+    onViewActivityInsights: (Profile) -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -703,6 +786,11 @@ private fun ActivitySection(
             ActivityHeatmapCard(
                 chartType = chartType,
                 minutesByLocalDay = minutesByLocalDay,
+                minutesByProfileByLocalDay = minutesByProfileByLocalDay,
+                profiles = profiles,
+                selectedDate = selectedActivityDate,
+                onSelectDate = onSelectActivityDate,
+                onViewActivityInsights = onViewActivityInsights,
             )
         } else {
             ActivityChartHiddenPlaceholder()
@@ -1199,24 +1287,191 @@ private fun formatAvgFocusMinutes(minutes: Float): String {
 private val activityDayAxisFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("EEE d")
 
+private val activityInsightDateFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault())
+
+private fun profileForActivityDayInsight(
+    date: LocalDate,
+    byProfileByDay: Map<LocalDate, Map<String, Float>>,
+    profiles: List<Profile>,
+    totalMinutes: Float,
+): Profile? {
+    if (profiles.isEmpty()) return null
+    if (totalMinutes < 0.5f) return null
+    val per = byProfileByDay[date] ?: emptyMap()
+    if (per.isEmpty()) return null
+    val top = per.entries.maxByOrNull { it.value } ?: return null
+    return profiles.firstOrNull { it.id == top.key }
+}
+
+private fun displayNameForActivityDay(
+    date: LocalDate,
+    byProfileByDay: Map<LocalDate, Map<String, Float>>,
+    profiles: List<Profile>,
+    totalMinutes: Float,
+): String {
+    if (totalMinutes < 0.5f) return "No focus this day"
+    return profileForActivityDayInsight(date, byProfileByDay, profiles, totalMinutes)
+        ?.name?.takeIf { it.isNotBlank() } ?: "—"
+}
+
+@Composable
+private fun ActivityHeatmapLegend(legendColors: List<Color>, legendLabels: List<String>) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            legendColors.forEachIndexed { i, c ->
+                if (i > 0) Spacer(modifier = Modifier.width(10.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(c),
+                    )
+                    Text(
+                        text = legendLabels[i],
+                        style = MaterialTheme.typography.labelSmall,
+                        color = cs.onSurfaceVariant,
+                        fontSize = 9.sp,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActivitySelectedDayInsight(
+    date: LocalDate,
+    totalMinutes: Float,
+    profileName: String,
+    profile: Profile?,
+    onView: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val pill = RoundedCornerShape(20.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+    ) {
+        Text(
+            text = date.format(activityInsightDateFormatter),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = cs.onSurface,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = profileName,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (profile == null) FontWeight.Normal else FontWeight.SemiBold,
+                color = if (profile == null) cs.onSurfaceVariant else cs.onSurface,
+                modifier = Modifier.weight(1f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = formatAvgFocusMinutes(totalMinutes),
+                style = MaterialTheme.typography.bodyLarge,
+                color = cs.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+            if (profile != null) {
+                OutlinedButton(
+                    onClick = onView,
+                    shape = pill,
+                    border = BorderStroke(1.dp, cs.outline.copy(alpha = 0.45f)),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = cs.surfaceVariant.copy(alpha = 0.4f),
+                        contentColor = cs.onSurface,
+                    ),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ShowChart,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = "View",
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun ActivityHeatmapCard(
     chartType: String,
     minutesByLocalDay: Map<LocalDate, Float>,
+    minutesByProfileByLocalDay: Map<LocalDate, Map<String, Float>>,
+    profiles: List<Profile>,
+    selectedDate: LocalDate?,
+    onSelectDate: (LocalDate) -> Unit,
+    onViewActivityInsights: (Profile) -> Unit,
 ) {
     when (chartType) {
-        ActivityChartType.WEEKLY -> ActivityWeeklyChartCard(minutesByLocalDay = minutesByLocalDay)
-        ActivityChartType.FOUR_WEEK -> ActivityFourWeekHeatmapCard(minutesByLocalDay = minutesByLocalDay)
-        ActivityChartType.MONTHLY -> ActivityMonthlyGridCard(minutesByLocalDay = minutesByLocalDay)
-        else -> ActivityMonthlyGridCard(minutesByLocalDay = minutesByLocalDay)
+        ActivityChartType.WEEKLY -> ActivityWeeklyChartCard(
+            minutesByLocalDay = minutesByLocalDay,
+            minutesByProfileByLocalDay = minutesByProfileByLocalDay,
+            profiles = profiles,
+            selectedDate = selectedDate,
+            onSelectDate = onSelectDate,
+            onViewActivityInsights = onViewActivityInsights,
+        )
+        ActivityChartType.FOUR_WEEK -> ActivityFourWeekHeatmapCard(
+            minutesByLocalDay = minutesByLocalDay,
+            minutesByProfileByLocalDay = minutesByProfileByLocalDay,
+            profiles = profiles,
+            selectedDate = selectedDate,
+            onSelectDate = onSelectDate,
+            onViewActivityInsights = onViewActivityInsights,
+        )
+        ActivityChartType.MONTHLY -> ActivityMonthlyGridCard(
+            minutesByLocalDay = minutesByLocalDay,
+            minutesByProfileByLocalDay = minutesByProfileByLocalDay,
+            profiles = profiles,
+            selectedDate = selectedDate,
+            onSelectDate = onSelectDate,
+            onViewActivityInsights = onViewActivityInsights,
+        )
+        else -> ActivityMonthlyGridCard(
+            minutesByLocalDay = minutesByLocalDay,
+            minutesByProfileByLocalDay = minutesByProfileByLocalDay,
+            profiles = profiles,
+            selectedDate = selectedDate,
+            onSelectDate = onSelectDate,
+            onViewActivityInsights = onViewActivityInsights,
+        )
     }
 }
 
 @Composable
 private fun ActivityWeeklyChartCard(
     minutesByLocalDay: Map<LocalDate, Float>,
+    minutesByProfileByLocalDay: Map<LocalDate, Map<String, Float>>,
+    profiles: List<Profile>,
+    selectedDate: LocalDate?,
+    onSelectDate: (LocalDate) -> Unit,
+    onViewActivityInsights: (Profile) -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
+    val accent = LocalAccentColor.current.value
     val isDark = isSystemInDarkTheme()
     val cardShape = RoundedCornerShape(22.dp)
     val zone = remember { ZoneId.systemDefault() }
@@ -1236,7 +1491,7 @@ private fun ActivityWeeklyChartCard(
         (minutesPerDay.maxOrNull() ?: 0f).coerceAtLeast(1f)
     }
 
-    val barAccent = Color(0xFFC4A77D)
+    val barAccent = accent
     val barMuted = cs.surfaceVariant.copy(alpha = if (isDark) 0.55f else 0.85f)
 
     Column(
@@ -1284,10 +1539,21 @@ private fun ActivityWeeklyChartCard(
                         showMin -> 0.12f
                         else -> 0.04f
                     }
+                    val day = days[i]
+                    val selected = selectedDate == day
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .fillMaxHeight(),
+                            .fillMaxHeight()
+                            .then(
+                                if (selected) {
+                                    Modifier.border(2.dp, cs.primary, RoundedCornerShape(10.dp))
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { onSelectDate(day) },
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Box(
@@ -1308,9 +1574,10 @@ private fun ActivityWeeklyChartCard(
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = activityDayAxisFormatter.format(days[i]),
+                            text = activityDayAxisFormatter.format(day),
                             style = MaterialTheme.typography.labelSmall,
-                            color = cs.onSurface,
+                            color = if (selected) cs.primary else cs.onSurface,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                             fontSize = 10.sp,
                             maxLines = 1,
                             textAlign = TextAlign.Center,
@@ -1337,12 +1604,31 @@ private fun ActivityWeeklyChartCard(
                 }
             }
         }
+
+        val sel = selectedDate
+        if (sel != null && days.contains(sel)) {
+            val total = minutesByLocalDay[sel] ?: 0f
+            val name = displayNameForActivityDay(sel, minutesByProfileByLocalDay, profiles, total)
+            val prof = profileForActivityDayInsight(sel, minutesByProfileByLocalDay, profiles, total)
+            ActivitySelectedDayInsight(
+                date = sel,
+                totalMinutes = total,
+                profileName = name,
+                profile = prof,
+                onView = { prof?.let(onViewActivityInsights) },
+            )
+        }
     }
 }
 
 @Composable
 private fun ActivityFourWeekHeatmapCard(
     minutesByLocalDay: Map<LocalDate, Float>,
+    minutesByProfileByLocalDay: Map<LocalDate, Map<String, Float>>,
+    profiles: List<Profile>,
+    selectedDate: LocalDate?,
+    onSelectDate: (LocalDate) -> Unit,
+    onViewActivityInsights: (Profile) -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
     val isDark = isSystemInDarkTheme()
@@ -1365,7 +1651,6 @@ private fun ActivityFourWeekHeatmapCard(
         FloatArray(28) { i -> minutesByLocalDay[windowStart.plusDays(i.toLong())] ?: 0f }
     }
     val cellIdle = cs.surfaceVariant.copy(alpha = if (isDark) 0.55f else 0.85f)
-    val cellToday = Color(0xFFC4A77D)
 
     fun bucketColor(minutes: Float): Color = when {
         minutes < 1f -> Color(0xFF3A3A3C)
@@ -1384,6 +1669,7 @@ private fun ActivityFourWeekHeatmapCard(
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        ActivityHeatmapLegend(legendColors = legendColors, legendLabels = legendLabels)
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(rowGap),
@@ -1398,23 +1684,29 @@ private fun ActivityFourWeekHeatmapCard(
                         val date = windowStart.plusDays(index.toLong())
                         val isToday = date == today
                         val mins = minutesPerDay[index]
-                        val fill = when {
-                            isToday && mins < 1f -> cellToday
+                        val isSelected = selectedDate == date
+                        val baseFill = when {
+                            isSelected -> cs.primary.copy(alpha = 0.25f)
+                            isToday && mins < 1f && !isSelected -> cs.primary.copy(alpha = 0.12f)
                             mins < 1f -> cellIdle
                             else -> bucketColor(mins)
                         }
+                        val dayText = if (isSelected) cs.primary else cs.onSurface
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(cellHeight)
                                 .clip(cellShape)
-                                .background(fill),
+                                .border(2.dp, if (isSelected) cs.primary else Color.Transparent, cellShape)
+                                .background(baseFill)
+                                .clickable { onSelectDate(date) },
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
                                 text = "${date.dayOfMonth}",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = cs.onSurface,
+                                color = dayText,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                 fontSize = 11.sp,
                             )
                         }
@@ -1422,28 +1714,17 @@ private fun ActivityFourWeekHeatmapCard(
                 }
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            legendColors.forEachIndexed { i, c ->
-                if (i > 0) Spacer(modifier = Modifier.width(10.dp))
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        modifier = Modifier
-                            .size(14.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(c),
-                    )
-                    Text(
-                        text = legendLabels[i],
-                        style = MaterialTheme.typography.labelSmall,
-                        color = cs.onSurfaceVariant,
-                        fontSize = 9.sp,
-                    )
-                }
-            }
+        selectedDate?.let { d ->
+            val total = minutesByLocalDay[d] ?: 0f
+            val name = displayNameForActivityDay(d, minutesByProfileByLocalDay, profiles, total)
+            val prof = profileForActivityDayInsight(d, minutesByProfileByLocalDay, profiles, total)
+            ActivitySelectedDayInsight(
+                date = d,
+                totalMinutes = total,
+                profileName = name,
+                profile = prof,
+                onView = { prof?.let(onViewActivityInsights) },
+            )
         }
     }
 }
@@ -1451,6 +1732,11 @@ private fun ActivityFourWeekHeatmapCard(
 @Composable
 private fun ActivityMonthlyGridCard(
     minutesByLocalDay: Map<LocalDate, Float>,
+    minutesByProfileByLocalDay: Map<LocalDate, Map<String, Float>>,
+    profiles: List<Profile>,
+    selectedDate: LocalDate?,
+    onSelectDate: (LocalDate) -> Unit,
+    onViewActivityInsights: (Profile) -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
     val isDark = isSystemInDarkTheme()
@@ -1476,7 +1762,6 @@ private fun ActivityMonthlyGridCard(
     val rows = (totalCells + 6) / 7
 
     val cellIdle = cs.surfaceVariant.copy(alpha = if (isDark) 0.55f else 0.85f)
-    val cellToday = Color(0xFFC4A77D)
 
     fun bucketColorMins(minutes: Float): Color = when {
         minutes < 1f -> Color(0xFF3A3A3C)
@@ -1495,6 +1780,7 @@ private fun ActivityMonthlyGridCard(
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        ActivityHeatmapLegend(legendColors = legendColors, legendLabels = legendLabels)
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(rowGap),
@@ -1517,22 +1803,28 @@ private fun ActivityMonthlyGridCard(
                                 val date = month.atDay(day)
                                 val isToday = date == today
                                 val mins = minutesByLocalDay[date] ?: 0f
-                                val fill = when {
-                                    isToday && mins < 1f -> cellToday
+                                val isSelected = selectedDate == date
+                                val baseFill = when {
+                                    isSelected -> cs.primary.copy(alpha = 0.25f)
+                                    isToday && mins < 1f && !isSelected -> cs.primary.copy(alpha = 0.12f)
                                     mins < 1f -> cellIdle
                                     else -> bucketColorMins(mins)
                                 }
+                                val dayText = if (isSelected) cs.primary else cs.onSurface
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .clip(cellShape)
-                                        .background(fill),
+                                        .border(2.dp, if (isSelected) cs.primary else Color.Transparent, cellShape)
+                                        .background(baseFill)
+                                        .clickable { onSelectDate(date) },
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Text(
                                         text = "$day",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = cs.onSurface,
+                                        color = dayText,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                         fontSize = 11.sp,
                                     )
                                 }
@@ -1543,27 +1835,18 @@ private fun ActivityMonthlyGridCard(
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            legendColors.forEachIndexed { i, c ->
-                if (i > 0) Spacer(modifier = Modifier.width(10.dp))
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        modifier = Modifier
-                            .size(14.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(c),
-                    )
-                    Text(
-                        text = legendLabels[i],
-                        style = MaterialTheme.typography.labelSmall,
-                        color = cs.onSurfaceVariant,
-                        fontSize = 9.sp,
-                    )
-                }
+        selectedDate?.let { d ->
+            if (d.month == month.month && d.year == month.year) {
+                val total = minutesByLocalDay[d] ?: 0f
+                val name = displayNameForActivityDay(d, minutesByProfileByLocalDay, profiles, total)
+                val prof = profileForActivityDayInsight(d, minutesByProfileByLocalDay, profiles, total)
+                ActivitySelectedDayInsight(
+                    date = d,
+                    totalMinutes = total,
+                    profileName = name,
+                    profile = prof,
+                    onView = { prof?.let(onViewActivityInsights) },
+                )
             }
         }
     }
