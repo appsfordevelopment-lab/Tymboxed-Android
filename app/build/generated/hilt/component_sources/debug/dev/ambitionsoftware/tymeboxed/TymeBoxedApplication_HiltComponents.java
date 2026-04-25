@@ -47,6 +47,7 @@ import dagger.hilt.migration.DisableInstallInCheck;
 import dev.ambitionsoftware.tymeboxed.di.DatabaseEntryPoint;
 import dev.ambitionsoftware.tymeboxed.di.DatabaseModule;
 import dev.ambitionsoftware.tymeboxed.di.PermissionsEntryPoint;
+import dev.ambitionsoftware.tymeboxed.di.ServiceBridgeEntryPoint;
 import dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel_HiltModules;
 import dev.ambitionsoftware.tymeboxed.service.BootCompletedReceiver_GeneratedInjector;
 import dev.ambitionsoftware.tymeboxed.ui.screens.home.HomeViewModel_HiltModules;
@@ -153,6 +154,7 @@ public final class TymeBoxedApplication_HiltComponents {
       TymeBoxedApplication_GeneratedInjector,
       DatabaseEntryPoint,
       PermissionsEntryPoint,
+      ServiceBridgeEntryPoint,
       BootCompletedReceiver_GeneratedInjector {
   }
 

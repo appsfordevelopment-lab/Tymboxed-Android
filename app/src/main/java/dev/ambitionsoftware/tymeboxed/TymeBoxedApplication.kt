@@ -9,6 +9,8 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
 import dev.ambitionsoftware.tymeboxed.data.db.TymeBoxedDatabase
 import dev.ambitionsoftware.tymeboxed.di.PermissionsEntryPoint
+import dev.ambitionsoftware.tymeboxed.domain.model.toDomain
+import dev.ambitionsoftware.tymeboxed.service.BlockingStateRestorer
 import dev.ambitionsoftware.tymeboxed.service.ActiveBlockingState
 import dev.ambitionsoftware.tymeboxed.service.SessionBlockerService
 import kotlinx.coroutines.CoroutineScope
@@ -70,30 +72,21 @@ class TymeBoxedApplication : Application() {
                 val activeSession = db.sessionDao().findActive() ?: return@launch
                 val profileWithApps = db.profileDao()
                     .getByIdWithApps(activeSession.profileId) ?: return@launch
+                val profile = profileWithApps.toDomain()
+                val session = activeSession.toDomain()
 
-                val profile = profileWithApps.profile
-                val blockedPkgs = profileWithApps.blockedApps
-                    .map { it.packageName }.toSet()
-
-                val domainList = profile.domains
-                    ?.split(",")
-                    ?.map { it.trim() }
-                    ?.filter { it.isNotBlank() }
-                    ?: emptyList()
-
-                ActiveBlockingState.activate(
-                    profileId = activeSession.profileId,
-                    profileName = profile.name,
+                val blockedPkgs = profile.blockedPackages.toSet()
+                BlockingStateRestorer.apply(
+                    profile = profile,
+                    session = session,
                     blockedPackages = blockedPkgs,
-                    isAllowMode = profile.isAllowMode,
-                    domains = domainList,
-                    isAllowModeDomains = profile.isAllowModeDomains,
                 )
 
                 // Restart foreground service
                 val serviceIntent = SessionBlockerService.startIntent(
                     this@TymeBoxedApplication,
                     profile.name,
+                    activeSession.startTime,
                 )
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     startForegroundService(serviceIntent)

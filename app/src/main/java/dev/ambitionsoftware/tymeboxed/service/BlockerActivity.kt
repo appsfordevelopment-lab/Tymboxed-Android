@@ -35,7 +35,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -46,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 
 /**
  * Full-screen overlay shown when the user tries to open a blocked app.
@@ -207,6 +212,29 @@ class BlockerActivity : ComponentActivity() {
     }
 }
 
+@Composable
+private fun BlockerSessionElapsedLabel(sessionStartMs: Long) {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(sessionStartMs) {
+        while (true) {
+            delay(1_000)
+            now = System.currentTimeMillis()
+        }
+    }
+    val elapsedSec = ((now - sessionStartMs).coerceAtLeast(0L)) / 1000L
+    val h = (elapsedSec / 3600).toInt()
+    val m = ((elapsedSec % 3600) / 60).toInt()
+    val s = (elapsedSec % 60).toInt()
+    val label = String.format("Session blocking: %02d:%02d:%02d", h, m, s)
+    Text(
+        text = label,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onBackground,
+        textAlign = TextAlign.Center,
+    )
+}
+
 // ---------------------------------------------------------------------------
 // Standalone theme — no Hilt dependency so it works from the a11y service
 // ---------------------------------------------------------------------------
@@ -359,6 +387,12 @@ private fun BlockerScreen(
                     color = MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Center,
                 )
+
+                val sessionStart = ActiveBlockingState.current.sessionStartTimeMs
+                if (sessionStart > 0L) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    BlockerSessionElapsedLabel(sessionStartMs = sessionStart)
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 

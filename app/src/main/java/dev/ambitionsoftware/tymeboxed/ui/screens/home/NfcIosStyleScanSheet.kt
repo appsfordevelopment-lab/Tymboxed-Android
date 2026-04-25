@@ -44,6 +44,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -57,7 +58,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.ambitionsoftware.tymeboxed.R
+import dev.ambitionsoftware.tymeboxed.nfc.NfcTagVerifyResult
 import dev.ambitionsoftware.tymeboxed.nfc.normalizedUid
+import kotlinx.coroutines.launch
 
 private const val LOG_TAG = "NfcIosScan"
 
@@ -69,30 +73,44 @@ enum class NfcSessionScanPurpose {
 /**
  * System-style “Ready to Scan” sheet (iOS-like): [MaterialTheme] surface panel, ring + button
  * use [androidx.compose.material3.ColorScheme.primary] (the selected Settings accent).
- * Invokes [onTagScanned] after any successful tag read (valid UID).
+ * After a read, [verifyNfc] is called; [onTagScanned] runs only if the server reports the tag as a
+ * registered Tyme Boxed device (see `POST /api/nfc/verify`).
  */
 @Composable
 fun NfcIosStyleScanSheet(
     profileName: String,
     purpose: NfcSessionScanPurpose,
+    verifyNfc: suspend (String) -> NfcTagVerifyResult,
     onTagScanned: () -> Unit,
     onDismiss: () -> Unit,
+    /** When set, overrides the default copy for the [purpose] (e.g. break vs end for focus+break). */
+    bodyTextOverride: String? = null,
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val activity = LocalContext.current as ComponentActivity
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val triggerName = profileName.ifBlank { "session" }
-    val bodyText = when (purpose) {
+    val bodyText = bodyTextOverride ?: when (purpose) {
         NfcSessionScanPurpose.Start ->
-            "Hold your iPhone near the Tyme Boxed device to trigger $triggerName."
+            "Hold your phone near the Tyme Boxed device to start $triggerName."
         NfcSessionScanPurpose.Stop ->
-            "Hold your iPhone near the Tyme Boxed device to end this session."
+            "Hold your phone near the Tyme Boxed device to end this session."
     }
 
     val latestOnSuccess by rememberUpdatedState(onTagScanned)
     val latestDismiss by rememberUpdatedState(onDismiss)
-    var readerTornDown by remember { mutableStateOf(false) }
+    val latestVerifyNfc by rememberUpdatedState(verifyNfc)
+    val scope = rememberCoroutineScope()
+    // NFC reader callback is not recomposed; use a stable holder for flags the callback must read.
+    val sessionFlags = remember {
+        object {
+            @Volatile
+            var readerTornDown: Boolean = false
+            @Volatile
+            var verifying: Boolean = false
+        }
+    }
     var wrongTagMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
@@ -118,14 +136,33 @@ fun NfcIosStyleScanSheet(
                 val uid = tag.normalizedUid() ?: "unknown"
                 Log.i(LOG_TAG, "Scanned uid=$uid")
                 activity.runOnUiThread {
-                    if (readerTornDown) return@runOnUiThread
+                    if (sessionFlags.readerTornDown || sessionFlags.verifying) return@runOnUiThread
+                    if (uid == "unknown") {
+                        wrongTagMessage = activity.getString(R.string.nfc_read_failed)
+                        return@runOnUiThread
+                    }
                     wrongTagMessage = null
-                    if (uid != "unknown") {
-                        readerTornDown = true
-                        runCatching { adapter.disableReaderMode(activity) }
-                        latestOnSuccess()
-                    } else {
-                        wrongTagMessage = "Couldn’t read this tag. Try again."
+                    sessionFlags.verifying = true
+                }
+                scope.launch {
+                    val result = latestVerifyNfc(uid)
+                    activity.runOnUiThread {
+                        sessionFlags.verifying = false
+                        if (sessionFlags.readerTornDown) return@runOnUiThread
+                        when (result) {
+                            is NfcTagVerifyResult.Registered -> {
+                                sessionFlags.readerTornDown = true
+                                runCatching { adapter.disableReaderMode(activity) }
+                                latestOnSuccess()
+                            }
+                            is NfcTagVerifyResult.NotRegistered -> {
+                                wrongTagMessage = activity.getString(R.string.nfc_use_tyme_boxed_device)
+                            }
+                            is NfcTagVerifyResult.Error -> {
+                                wrongTagMessage = result.message?.takeIf { it.isNotBlank() }
+                                    ?: activity.getString(R.string.nfc_verify_network_error)
+                            }
+                        }
                     }
                 }
             },
@@ -134,8 +171,8 @@ fun NfcIosStyleScanSheet(
         )
 
         onDispose {
-            if (!readerTornDown) {
-                readerTornDown = true
+            if (!sessionFlags.readerTornDown) {
+                sessionFlags.readerTornDown = true
                 runCatching { adapter.disableReaderMode(activity) }
             }
         }

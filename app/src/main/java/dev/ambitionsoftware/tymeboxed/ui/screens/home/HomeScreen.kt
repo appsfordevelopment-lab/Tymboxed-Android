@@ -69,6 +69,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -81,6 +82,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -110,6 +112,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.ambitionsoftware.tymeboxed.data.prefs.ActivityChartType
 import dev.ambitionsoftware.tymeboxed.data.prefs.AppPreferences
+import dev.ambitionsoftware.tymeboxed.data.repository.AuthRepository
 import dev.ambitionsoftware.tymeboxed.data.repository.ProfileRepository
 import dev.ambitionsoftware.tymeboxed.data.repository.SessionRepository
 import dev.ambitionsoftware.tymeboxed.domain.model.Profile
@@ -126,7 +129,11 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 import kotlin.math.roundToInt
+import dev.ambitionsoftware.tymeboxed.domain.model.BlockingStrategyId
+import dev.ambitionsoftware.tymeboxed.nfc.NfcTagVerifyResult
 import dev.ambitionsoftware.tymeboxed.service.ActiveBlockingState
+import dev.ambitionsoftware.tymeboxed.service.AppSessionController
+import dev.ambitionsoftware.tymeboxed.service.BlockingStateRestorer
 import dev.ambitionsoftware.tymeboxed.service.SessionBlockerService
 import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCard
 import dev.ambitionsoftware.tymeboxed.ui.screens.insights.ProfileInsightsScreen
@@ -147,6 +154,8 @@ class HomeViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
     private val sessionRepository: SessionRepository,
     private val appPreferences: AppPreferences,
+    private val authRepository: AuthRepository,
+    private val appSessionController: AppSessionController,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
     val profiles: StateFlow<List<Profile>> = profileRepository.observeAll().stateIn(
@@ -227,15 +236,16 @@ class HomeViewModel @Inject constructor(
             val session = sessionRepository.findActive() ?: return@launch
             if (ActiveBlockingState.current.isBlocking) return@launch
             val profile = profileRepository.findById(session.profileId) ?: return@launch
-            ActiveBlockingState.activate(
-                profileId = session.profileId,
-                profileName = profile.name,
+            BlockingStateRestorer.apply(
+                profile = profile,
+                session = session,
                 blockedPackages = profile.blockedPackages.toSet(),
-                isAllowMode = profile.isAllowMode,
-                domains = profile.domains,
-                isAllowModeDomains = profile.isAllowModeDomains,
             )
-            val serviceIntent = SessionBlockerService.startIntent(appContext, profile.name)
+            val serviceIntent = SessionBlockerService.startIntent(
+                appContext,
+                profile.name,
+                session.startTime,
+            )
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 appContext.startForegroundService(serviceIntent)
             } else {
@@ -244,34 +254,50 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun startSession(profileId: String) {
+    suspend fun verifyNfcTagId(tagId: String): NfcTagVerifyResult =
+        authRepository.verifyNfcTag(tagId)
+
+    /**
+     * @param selectedTimerMinutes when strategy is focus timer or focus+break, the chosen
+     * duration in minutes; persisted to the profile to match iOS.
+     */
+    fun startSession(profileId: String, selectedTimerMinutes: Int? = null) {
         viewModelScope.launch {
-            // Load the profile so we know what to block
-            val profile = profileRepository.findById(profileId) ?: return@launch
+            var profile = profileRepository.findById(profileId) ?: return@launch
+
+            if (selectedTimerMinutes != null &&
+                profile.strategyId in listOf(BlockingStrategyId.FOCUS_TIMER, BlockingStrategyId.FOCUS_TIMER_BREAK)
+            ) {
+                val updated = profile.copy(
+                    strategyData = selectedTimerMinutes.coerceIn(1, 24 * 60).toString(),
+                    updatedAt = System.currentTimeMillis(),
+                )
+                profileRepository.save(updated)
+                profile = updated
+            }
 
             // End any lingering session first
             sessionRepository.resetActive()
 
-            // Create the session record
+            val now = System.currentTimeMillis()
             val session = Session(
                 id = UUID.randomUUID().toString(),
                 profileId = profileId,
-                startTime = System.currentTimeMillis(),
+                startTime = now,
             )
             sessionRepository.insert(session)
 
-            // Activate blocking in-memory for the AccessibilityService
-            ActiveBlockingState.activate(
-                profileId = profileId,
-                profileName = profile.name,
+            BlockingStateRestorer.apply(
+                profile = profile,
+                session = session,
                 blockedPackages = profile.blockedPackages.toSet(),
-                isAllowMode = profile.isAllowMode,
-                domains = profile.domains,
-                isAllowModeDomains = profile.isAllowModeDomains,
             )
 
-            // Start foreground service (keeps the process alive + shows notification)
-            val serviceIntent = SessionBlockerService.startIntent(appContext, profile.name)
+            val serviceIntent = SessionBlockerService.startIntent(
+                appContext,
+                profile.name,
+                session.startTime,
+            )
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 appContext.startForegroundService(serviceIntent)
             } else {
@@ -280,17 +306,44 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Plain in-app stop (no NFC) — for manual strategy or when NFC is unavailable.
+     */
     fun stopSession() {
         viewModelScope.launch {
-            // Clear blocking state
-            ActiveBlockingState.deactivate()
-
-            // End the DB session
-            sessionRepository.resetActive()
-
-            // Stop foreground service
-            appContext.startService(SessionBlockerService.stopIntent(appContext))
+            appSessionController.endSessionCompletely()
         }
+    }
+
+    /**
+     * User scanned a valid tag after requesting stop. Matches iOS: most strategies
+     * end the session; [BlockingStrategyId.FOCUS_TIMER_BREAK] may enter break first.
+     */
+    fun onNfcScannedToStop() {
+        viewModelScope.launch {
+            val session = sessionRepository.findActive() ?: return@launch
+            val profile = profileRepository.findById(session.profileId) ?: return@launch
+            if (profile.strategyId == BlockingStrategyId.FOCUS_TIMER_BREAK) {
+                if (session.isPauseActive) {
+                    appSessionController.endSessionCompletely()
+                } else {
+                    startBreakFromNfcScan(session, profile)
+                }
+            } else {
+                appSessionController.endSessionCompletely()
+            }
+        }
+    }
+
+    private suspend fun startBreakFromNfcScan(session: Session, profile: Profile) {
+        val breakMins = profile.strategyData?.toIntOrNull() ?: 15
+        val endBreak = System.currentTimeMillis() + breakMins * 60_000L
+        val updated = session.copy(
+            isPauseActive = true,
+            pauseStartTime = System.currentTimeMillis(),
+        )
+        appSessionController.updateSessionEntity(updated)
+        ActiveBlockingState.setPause(isPauseActive = true, breakAutoResumeAtMs = endBreak)
     }
 }
 
@@ -392,20 +445,42 @@ fun HomeScreen(
     var insightsProfile by remember { mutableStateOf<Profile?>(null) }
     var nfcPendingProfileId by remember { mutableStateOf<String?>(null) }
     var nfcStopPending by remember { mutableStateOf(false) }
+    var durationPickProfileId by remember { mutableStateOf<String?>(null) }
+    var durationPickIsBreak by remember { mutableStateOf(false) }
 
     val nfcPendingProfile = remember(nfcPendingProfileId, profiles) {
         nfcPendingProfileId?.let { id -> profiles.firstOrNull { it.id == id } }
     }
+    val durationPickProfile = remember(durationPickProfileId, profiles) {
+        durationPickProfileId?.let { id -> profiles.firstOrNull { it.id == id } }
+    }
 
     fun requestStartSession(profileId: String) {
-        if (!permissionsVm.isNfcAvailable) {
-            vm.startSession(profileId)
-            return
+        val profile = profiles.firstOrNull { it.id == profileId } ?: return
+        when (profile.strategyId) {
+            BlockingStrategyId.NFC_MANUAL_START, BlockingStrategyId.MANUAL -> vm.startSession(profileId)
+            BlockingStrategyId.FOCUS_TIMER -> {
+                durationPickIsBreak = false
+                durationPickProfileId = profileId
+            }
+            BlockingStrategyId.FOCUS_TIMER_BREAK -> {
+                durationPickIsBreak = true
+                durationPickProfileId = profileId
+            }
+            BlockingStrategyId.NFC_UNLOCK -> {
+                if (!permissionsVm.isNfcAvailable) vm.startSession(profileId) else nfcPendingProfileId = profileId
+            }
+            else -> vm.startSession(profileId)
         }
-        nfcPendingProfileId = profileId
     }
 
     fun requestStopSession() {
+        val session = activeSession ?: return
+        val profile = profiles.firstOrNull { it.id == session.profileId } ?: return
+        if (profile.strategyId == BlockingStrategyId.MANUAL) {
+            vm.stopSession()
+            return
+        }
         if (!permissionsVm.isNfcAvailable) {
             vm.stopSession()
             return
@@ -422,6 +497,12 @@ fun HomeScreen(
         val id = nfcPendingProfileId ?: return@LaunchedEffect
         if (profiles.none { it.id == id }) {
             nfcPendingProfileId = null
+        }
+    }
+    LaunchedEffect(durationPickProfileId, profiles) {
+        val id = durationPickProfileId ?: return@LaunchedEffect
+        if (profiles.none { it.id == id }) {
+            durationPickProfileId = null
         }
     }
 
@@ -453,6 +534,7 @@ fun HomeScreen(
         NfcIosStyleScanSheet(
             profileName = profile.name.ifBlank { "session" },
             purpose = NfcSessionScanPurpose.Start,
+            verifyNfc = { tagId -> vm.verifyNfcTagId(tagId) },
             onTagScanned = {
                 vm.startSession(profile.id)
                 nfcPendingProfileId = null
@@ -462,17 +544,41 @@ fun HomeScreen(
     }
 
     if (nfcStopPending) {
-        val stopProfileName = activeSession?.let { s ->
-            profiles.firstOrNull { it.id == s.profileId }?.name?.takeIf { it.isNotBlank() }
-        } ?: "session"
+        val stopSession = activeSession
+        val stopProfile = stopSession?.let { s ->
+            profiles.firstOrNull { it.id == s.profileId }
+        }
+        val stopProfileName = stopProfile?.name?.takeIf { it.isNotBlank() } ?: "session"
+        val stopBodyOverride = when {
+            stopSession == null || stopProfile?.strategyId != BlockingStrategyId.FOCUS_TIMER_BREAK -> null
+            stopSession.isPauseActive ->
+                "Hold your phone near the Tyme Boxed device to end this session while on a break."
+            else ->
+                "Hold your phone near the Tyme Boxed device to start your break. " +
+                    "The next scan while you are on a break ends the session."
+        }
         NfcIosStyleScanSheet(
             profileName = stopProfileName,
             purpose = NfcSessionScanPurpose.Stop,
+            verifyNfc = { tagId -> vm.verifyNfcTagId(tagId) },
             onTagScanned = {
-                vm.stopSession()
+                vm.onNfcScannedToStop()
                 nfcStopPending = false
             },
             onDismiss = { nfcStopPending = false },
+            bodyTextOverride = stopBodyOverride,
+        )
+    }
+
+    durationPickProfile?.let { profile ->
+        StrategyDurationBottomSheet(
+            profile = profile,
+            isBreakStrategy = durationPickIsBreak,
+            onConfirm = { minutes ->
+                vm.startSession(profile.id, selectedTimerMinutes = minutes)
+                durationPickProfileId = null
+            },
+            onDismiss = { durationPickProfileId = null },
         )
     }
 
@@ -601,6 +707,81 @@ fun HomeScreen(
                 profile = profile,
                 onDismiss = { insightsProfile = null },
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StrategyDurationBottomSheet(
+    profile: Profile,
+    isBreakStrategy: Boolean,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val defaultMins = profile.strategyData?.toIntOrNull() ?: if (isBreakStrategy) 15 else 25
+    var minutes by remember(profile.id, isBreakStrategy) {
+        mutableIntStateOf(defaultMins.coerceIn(5, 180))
+    }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val title = if (isBreakStrategy) "Break duration" else "Focus duration"
+    val desc = if (isBreakStrategy) {
+        "No blocking during the break. When time is up, focus blocking turns on again. " +
+            "Scan the device to start a break, then scan again while on a break to end the session."
+    } else {
+        "Blocking stays on until the timer runs out, or you scan your Tyme Boxed device to finish early."
+    }
+    BackHandler(onBack = onDismiss)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = desc,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = "$minutes minutes",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Slider(
+                value = minutes.toFloat(),
+                onValueChange = { minutes = it.roundToInt().coerceIn(5, 180) },
+                valueRange = 5f..180f,
+                steps = 34,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Cancel")
+                }
+                Button(
+                    onClick = { onConfirm(minutes) },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Start")
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
@@ -2163,6 +2344,7 @@ private fun ProfileCard(
             if (isActive && activeSession != null) {
                 ActiveSessionRow(
                     startTime = activeSession.startTime,
+                    isOnBreak = activeSession.isPauseActive,
                     onStop = onStop,
                 )
             } else {
@@ -2253,6 +2435,7 @@ private fun HoldToStartBar(
 @Composable
 private fun ActiveSessionRow(
     startTime: Long,
+    isOnBreak: Boolean = false,
     onStop: () -> Unit,
 ) {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -2267,6 +2450,11 @@ private fun ActiveSessionRow(
     val minutes = (elapsed % 3600) / 60
     val seconds = elapsed % 60
     val timerText = String.format("%02d:%02d:%02d", hours, minutes, seconds)
+    val chipColor = if (isOnBreak) {
+        Color(0xFFFF9500)
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -2278,19 +2466,27 @@ private fun ActiveSessionRow(
             modifier = Modifier
                 .weight(1f)
                 .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                .background(chipColor.copy(alpha = 0.12f))
                 .padding(vertical = 10.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = timerText,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (isOnBreak) {
+                    Text(
+                        text = "On break",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = chipColor,
+                    )
+                }
+                Text(
+                    text = timerText,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = chipColor,
+                )
+            }
         }
 
-        // Stop button
         Button(
             onClick = onStop,
             colors = ButtonDefaults.buttonColors(
@@ -2305,7 +2501,7 @@ private fun ActiveSessionRow(
                 modifier = Modifier.size(18.dp),
             )
             Spacer(modifier = Modifier.size(4.dp))
-            Text("Stop")
+            Text(if (isOnBreak) "End" else "Stop")
         }
     }
 }

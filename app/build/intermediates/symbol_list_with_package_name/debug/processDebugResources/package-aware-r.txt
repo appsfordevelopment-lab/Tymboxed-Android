@@ -391,6 +391,9 @@ string m3c_tooltip_long_press_label
 string m3c_tooltip_pane_description
 string nav_back
 string navigation_menu
+string nfc_read_failed
+string nfc_use_tyme_boxed_device
+string nfc_verify_network_error
 string not_selected
 string range_end
 string range_start

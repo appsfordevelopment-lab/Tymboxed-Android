@@ -44,6 +44,9 @@
     <string name="in_app_label_spotlight">Spotlight</string>
     <string name="in_app_label_stories">Stories</string>
     <string name="nav_back">Back</string>
+    <string name="nfc_read_failed">Couldn’t read this tag. Try again.</string>
+    <string name="nfc_use_tyme_boxed_device">This tag isn’t a Tyme Boxed device. Use the Tyme Boxed device to start and stop sessions.</string>
+    <string name="nfc_verify_network_error">Couldn’t verify this tag. Check your connection and try again.</string>
     <string name="session_channel_description">Ongoing notification shown while a focus session is running.</string>
     <string name="session_channel_name">Active Session</string>
     <string name="settings_permissions_reliability_subtitle">Permissions and troubleshooting</string>

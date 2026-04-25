@@ -54,4 +54,9 @@
 
     <string name="settings_permissions_reliability_title">Permissions &amp; reliability</string>
     <string name="settings_permissions_reliability_subtitle">Permissions and troubleshooting</string>
+
+    <!-- NFC: only tags registered in the Tyme Boxed API (Tyme Boxed device) may start or stop a session. -->
+    <string name="nfc_read_failed">Couldn’t read this tag. Try again.</string>
+    <string name="nfc_use_tyme_boxed_device">This tag isn’t a Tyme Boxed device. Use the Tyme Boxed device to start and stop sessions.</string>
+    <string name="nfc_verify_network_error">Couldn’t verify this tag. Check your connection and try again.</string>
 </resources>

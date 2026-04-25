@@ -6,8 +6,10 @@ import dagger.internal.Factory;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import dev.ambitionsoftware.tymeboxed.data.prefs.AppPreferences;
+import dev.ambitionsoftware.tymeboxed.data.repository.AuthRepository;
 import dev.ambitionsoftware.tymeboxed.data.repository.ProfileRepository;
 import dev.ambitionsoftware.tymeboxed.data.repository.SessionRepository;
+import dev.ambitionsoftware.tymeboxed.service.AppSessionController;
 import javax.annotation.processing.Generated;
 import javax.inject.Provider;
 
@@ -32,30 +34,44 @@ public final class HomeViewModel_Factory implements Factory<HomeViewModel> {
 
   private final Provider<AppPreferences> appPreferencesProvider;
 
+  private final Provider<AuthRepository> authRepositoryProvider;
+
+  private final Provider<AppSessionController> appSessionControllerProvider;
+
   private final Provider<Context> appContextProvider;
 
   public HomeViewModel_Factory(Provider<ProfileRepository> profileRepositoryProvider,
       Provider<SessionRepository> sessionRepositoryProvider,
-      Provider<AppPreferences> appPreferencesProvider, Provider<Context> appContextProvider) {
+      Provider<AppPreferences> appPreferencesProvider,
+      Provider<AuthRepository> authRepositoryProvider,
+      Provider<AppSessionController> appSessionControllerProvider,
+      Provider<Context> appContextProvider) {
     this.profileRepositoryProvider = profileRepositoryProvider;
     this.sessionRepositoryProvider = sessionRepositoryProvider;
     this.appPreferencesProvider = appPreferencesProvider;
+    this.authRepositoryProvider = authRepositoryProvider;
+    this.appSessionControllerProvider = appSessionControllerProvider;
     this.appContextProvider = appContextProvider;
   }
 
   @Override
   public HomeViewModel get() {
-    return newInstance(profileRepositoryProvider.get(), sessionRepositoryProvider.get(), appPreferencesProvider.get(), appContextProvider.get());
+    return newInstance(profileRepositoryProvider.get(), sessionRepositoryProvider.get(), appPreferencesProvider.get(), authRepositoryProvider.get(), appSessionControllerProvider.get(), appContextProvider.get());
   }
 
   public static HomeViewModel_Factory create(Provider<ProfileRepository> profileRepositoryProvider,
       Provider<SessionRepository> sessionRepositoryProvider,
-      Provider<AppPreferences> appPreferencesProvider, Provider<Context> appContextProvider) {
-    return new HomeViewModel_Factory(profileRepositoryProvider, sessionRepositoryProvider, appPreferencesProvider, appContextProvider);
+      Provider<AppPreferences> appPreferencesProvider,
+      Provider<AuthRepository> authRepositoryProvider,
+      Provider<AppSessionController> appSessionControllerProvider,
+      Provider<Context> appContextProvider) {
+    return new HomeViewModel_Factory(profileRepositoryProvider, sessionRepositoryProvider, appPreferencesProvider, authRepositoryProvider, appSessionControllerProvider, appContextProvider);
   }
 
   public static HomeViewModel newInstance(ProfileRepository profileRepository,
-      SessionRepository sessionRepository, AppPreferences appPreferences, Context appContext) {
-    return new HomeViewModel(profileRepository, sessionRepository, appPreferences, appContext);
+      SessionRepository sessionRepository, AppPreferences appPreferences,
+      AuthRepository authRepository, AppSessionController appSessionController,
+      Context appContext) {
+    return new HomeViewModel(profileRepository, sessionRepository, appPreferences, authRepository, appSessionController, appContext);
   }
 }

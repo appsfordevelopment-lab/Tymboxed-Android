@@ -166,6 +166,10 @@ class AppBlockerAccessibilityService : AccessibilityService() {
                 // Poll rootInActiveWindow as a secondary foreground signal
                 pollActiveWindowPackage()
 
+                // Strict uninstall: [currentTopPkg] can stay stable while the user is already in
+                // Settings — still poll the active window package every second (iOS: denyAppRemoval).
+                maybeStrictUninstallFromActiveRoot()
+
                 // Poll UsageEvents as a tertiary fallback
                 refreshTopPackageViaUsageEvents()
 
@@ -203,6 +207,19 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             currentTopPkg = rootPkg
             maybeBlock(rootPkg, event = null)
         }
+    }
+
+    private fun maybeStrictUninstallFromActiveRoot() {
+        if (!ActiveBlockingState.current.isBlocking || !ActiveBlockingState.current.strictModeEnabled) {
+            return
+        }
+        val rootPkg = try {
+            rootInActiveWindow?.packageName?.toString()
+        } catch (_: Throwable) {
+            null
+        }
+        if (rootPkg.isNullOrBlank() || rootPkg == packageName) return
+        StrictUninstallInterception.interceptIfNeeded(this, rootPkg)
     }
 
     /**
@@ -354,12 +371,16 @@ class AppBlockerAccessibilityService : AccessibilityService() {
      * Instead of force-closing, launches the [BlockerActivity] overlay.
      */
     private fun maybeBlock(pkg: String, event: AccessibilityEvent?) {
-        // Never block system-critical packages
-        if (pkg in NEVER_BLOCK) return
-
         // Don't enforce when screen is off or device is locked
         if (!pm.isInteractive) return
         if (km?.isKeyguardLocked == true) return
+
+        if (StrictUninstallInterception.interceptIfNeeded(this, pkg)) {
+            return
+        }
+
+        // Never block system-critical packages (see strict-mode uninstall interception above)
+        if (pkg in NEVER_BLOCK) return
 
         if (InAppToggleKeys.isSupportedApp(pkg)) {
             val root = currentRoot(event)

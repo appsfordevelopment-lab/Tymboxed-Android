@@ -49,6 +49,9 @@ string in_app_label_shorts
 string in_app_label_spotlight
 string in_app_label_stories
 string nav_back
+string nfc_read_failed
+string nfc_use_tyme_boxed_device
+string nfc_verify_network_error
 string session_channel_description
 string session_channel_name
 string settings_permissions_reliability_subtitle

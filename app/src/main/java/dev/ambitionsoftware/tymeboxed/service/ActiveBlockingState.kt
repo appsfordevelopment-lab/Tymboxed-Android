@@ -1,6 +1,7 @@
 package dev.ambitionsoftware.tymeboxed.service
 
 import android.os.SystemClock
+import dev.ambitionsoftware.tymeboxed.domain.model.BlockingStrategyId
 
 /**
  * In-memory singleton that holds the current blocking session's state.
@@ -17,6 +18,23 @@ object ActiveBlockingState {
         val profileId: String? = null,
         /** Display name for the foreground notification; survives service restarts with a null intent. */
         val profileName: String? = null,
+        /** Epoch ms when the current focus session started; used for live duration UI. */
+        val sessionStartTimeMs: Long = 0L,
+        /** Active profile strategy; drives start/stop/NFC behavior (mirrors iOS StrategyManager). */
+        val strategyId: String = BlockingStrategyId.NFC_UNLOCK,
+        /**
+         * When true, restrictions are lifted until [breakAutoResumeAtMs] (focus + break strategy)
+         * or the user ends the session from the break NFC flow.
+         */
+        val isPauseActive: Boolean = false,
+        /** When set and [isPauseActive], break auto-resumes focus blocking at this time. */
+        val breakAutoResumeAtMs: Long? = null,
+        /** For [BlockingStrategyId.FOCUS_TIMER] — auto end session at this wall time. */
+        val focusTimerEndMs: Long? = null,
+        /**
+         * Profile [enableStrictMode]: block uninstall flows for Tyme Boxed while a session is active.
+         */
+        val strictModeEnabled: Boolean = false,
         val blockedPackages: Set<String> = emptySet(),
         val isAllowMode: Boolean = false,
         /** Normalized hostnames from the active profile (see [DomainBlocking.normalize]). */
@@ -49,6 +67,12 @@ object ActiveBlockingState {
         isAllowMode: Boolean,
         domains: List<String> = emptyList(),
         isAllowModeDomains: Boolean = false,
+        sessionStartTimeMs: Long = 0L,
+        strategyId: String = BlockingStrategyId.NFC_UNLOCK,
+        isPauseActive: Boolean = false,
+        breakAutoResumeAtMs: Long? = null,
+        focusTimerEndMs: Long? = null,
+        strictModeEnabled: Boolean = false,
     ) {
         val normalizedDomains = domains
             .map { it.trim() }
@@ -58,10 +82,31 @@ object ActiveBlockingState {
             isBlocking = true,
             profileId = profileId,
             profileName = profileName,
+            sessionStartTimeMs = sessionStartTimeMs,
+            strategyId = strategyId,
+            isPauseActive = isPauseActive,
+            breakAutoResumeAtMs = breakAutoResumeAtMs,
+            focusTimerEndMs = focusTimerEndMs,
+            strictModeEnabled = strictModeEnabled,
             blockedPackages = blockedPackages,
             isAllowMode = isAllowMode,
             domains = normalizedDomains,
             isAllowModeDomains = isAllowModeDomains,
+        )
+    }
+
+    /**
+     * Updates pause/break state without losing package/domain lists (iOS: break scan flow).
+     */
+    fun setPause(
+        isPauseActive: Boolean,
+        breakAutoResumeAtMs: Long? = null,
+    ) {
+        val snap = current
+        if (!snap.isBlocking) return
+        current = snap.copy(
+            isPauseActive = isPauseActive,
+            breakAutoResumeAtMs = if (isPauseActive) breakAutoResumeAtMs else null,
         )
     }
 
@@ -106,6 +151,7 @@ object ActiveBlockingState {
     fun shouldBlock(packageName: String): Boolean {
         val snap = current
         if (!snap.isBlocking) return false
+        if (snap.isPauseActive) return false
         return if (snap.isAllowMode) {
             packageName !in snap.blockedPackages
         } else {
@@ -114,7 +160,11 @@ object ActiveBlockingState {
     }
 
     /** True when the profile has at least one domain rule to enforce in browsers. */
-    fun hasDomainRules(): Boolean = current.isBlocking && current.domains.isNotEmpty()
+    fun hasDomainRules(): Boolean {
+        val snap = current
+        if (!snap.isBlocking || snap.isPauseActive) return false
+        return snap.domains.isNotEmpty()
+    }
 
     /**
      * Whether the given [host] (from a browser URL bar) should be blocked.
@@ -124,7 +174,7 @@ object ActiveBlockingState {
      */
     fun shouldBlockDomain(host: String): Boolean {
         val snap = current
-        if (!snap.isBlocking || snap.domains.isEmpty()) return false
+        if (!snap.isBlocking || snap.isPauseActive || snap.domains.isEmpty()) return false
         val normalizedHost = DomainBlocking.normalize(host) ?: return false
         val matchesRule = snap.domains.any { DomainBlocking.matches(normalizedHost, it) }
         return if (snap.isAllowModeDomains) {

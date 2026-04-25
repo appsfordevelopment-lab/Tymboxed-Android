@@ -41,6 +41,7 @@ import hilt_aggregated_deps._dev_ambitionsoftware_tymeboxed_TymeBoxedApplication
 import hilt_aggregated_deps._dev_ambitionsoftware_tymeboxed_di_DatabaseEntryPoint;
 import hilt_aggregated_deps._dev_ambitionsoftware_tymeboxed_di_DatabaseModule;
 import hilt_aggregated_deps._dev_ambitionsoftware_tymeboxed_di_PermissionsEntryPoint;
+import hilt_aggregated_deps._dev_ambitionsoftware_tymeboxed_di_ServiceBridgeEntryPoint;
 import hilt_aggregated_deps._dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel_HiltModules_BindsModule;
 import hilt_aggregated_deps._dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel_HiltModules_KeyModule;
 import hilt_aggregated_deps._dev_ambitionsoftware_tymeboxed_service_BootCompletedReceiver_GeneratedInjector;
@@ -105,6 +106,7 @@ import hilt_aggregated_deps._dev_ambitionsoftware_tymeboxed_ui_theme_ThemeViewMo
         _dev_ambitionsoftware_tymeboxed_di_DatabaseEntryPoint.class,
         _dev_ambitionsoftware_tymeboxed_di_DatabaseModule.class,
         _dev_ambitionsoftware_tymeboxed_di_PermissionsEntryPoint.class,
+        _dev_ambitionsoftware_tymeboxed_di_ServiceBridgeEntryPoint.class,
         _dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel_HiltModules_BindsModule.class,
         _dev_ambitionsoftware_tymeboxed_permissions_PermissionsViewModel_HiltModules_KeyModule.class,
         _dev_ambitionsoftware_tymeboxed_service_BootCompletedReceiver_GeneratedInjector.class,
