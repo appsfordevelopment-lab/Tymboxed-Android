@@ -54,6 +54,10 @@ string nfc_use_tyme_boxed_device
 string nfc_verify_network_error
 string session_channel_description
 string session_channel_name
+string session_reminder_channel_description
+string session_reminder_channel_name
+string session_reminder_default_body
+string session_reminder_title
 string settings_permissions_reliability_subtitle
 string settings_permissions_reliability_title
 style Theme.TymeBoxed

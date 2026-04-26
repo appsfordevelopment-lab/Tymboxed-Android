@@ -28,7 +28,9 @@ class SessionTimerHandler @Inject constructor(
             resumeFocusAfterBreak()
             return
         }
-        if (snap.strategyId == BlockingStrategyId.FOCUS_TIMER) {
+        val isFocusWithTimer = snap.strategyId == BlockingStrategyId.FOCUS_TIMER ||
+            snap.strategyId == BlockingStrategyId.FOCUS_TIMER_BREAK
+        if (isFocusWithTimer) {
             val end = snap.focusTimerEndMs ?: return
             if (now >= end) {
                 appSessionController.endSessionCompletely()

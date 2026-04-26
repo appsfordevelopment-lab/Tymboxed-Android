@@ -9,6 +9,7 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
 import dev.ambitionsoftware.tymeboxed.data.db.TymeBoxedDatabase
 import dev.ambitionsoftware.tymeboxed.di.PermissionsEntryPoint
+import dev.ambitionsoftware.tymeboxed.domain.model.normalizedForBreaks
 import dev.ambitionsoftware.tymeboxed.domain.model.toDomain
 import dev.ambitionsoftware.tymeboxed.service.BlockingStateRestorer
 import dev.ambitionsoftware.tymeboxed.service.ActiveBlockingState
@@ -32,6 +33,7 @@ class TymeBoxedApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         createSessionNotificationChannel()
+        createSessionReminderChannel()
         // Re-read permission flags after channel creation; cold start must match system state
         // before any Compose screen reads [PermissionsCoordinator].
         EntryPointAccessors.fromApplication(this, PermissionsEntryPoint::class.java)
@@ -72,7 +74,7 @@ class TymeBoxedApplication : Application() {
                 val activeSession = db.sessionDao().findActive() ?: return@launch
                 val profileWithApps = db.profileDao()
                     .getByIdWithApps(activeSession.profileId) ?: return@launch
-                val profile = profileWithApps.toDomain()
+                val profile = profileWithApps.toDomain().normalizedForBreaks()
                 val session = activeSession.toDomain()
 
                 val blockedPkgs = profile.blockedPackages.toSet()
@@ -107,7 +109,22 @@ class TymeBoxedApplication : Application() {
         }
     }
 
+    private fun createSessionReminderChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val channel = NotificationChannel(
+            SESSION_REMINDER_CHANNEL_ID,
+            getString(R.string.session_reminder_channel_name),
+            NotificationManager.IMPORTANCE_DEFAULT,
+        ).apply {
+            description = getString(R.string.session_reminder_channel_description)
+            setShowBadge(true)
+        }
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.createNotificationChannel(channel)
+    }
+
     companion object {
         const val SESSION_CHANNEL_ID = "tymeboxed_session"
+        const val SESSION_REMINDER_CHANNEL_ID = "tymeboxed_session_reminder"
     }
 }

@@ -49,6 +49,10 @@
     <string name="nfc_verify_network_error">Couldn’t verify this tag. Check your connection and try again.</string>
     <string name="session_channel_description">Ongoing notification shown while a focus session is running.</string>
     <string name="session_channel_name">Active Session</string>
+    <string name="session_reminder_channel_description">Nudge to start a focus session again after one ends (when you enable Reminder on a profile)</string>
+    <string name="session_reminder_channel_name">Session reminders</string>
+    <string name="session_reminder_default_body">Get back to productivity by enabling %1$s</string>
+    <string name="session_reminder_title">%1$s time!</string>
     <string name="settings_permissions_reliability_subtitle">Permissions and troubleshooting</string>
     <string name="settings_permissions_reliability_title">Permissions &amp; reliability</string>
     <style name="Theme.TymeBoxed" parent="android:Theme.Material.Light.NoActionBar">

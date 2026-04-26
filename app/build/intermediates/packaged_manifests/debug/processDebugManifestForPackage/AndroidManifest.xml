@@ -139,6 +139,13 @@
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+        <receiver
+            android:name="dev.ambitionsoftware.tymeboxed.service.SessionReminderReceiver"
+            android:exported="false" >
+            <intent-filter>
+                <action android:name="dev.ambitionsoftware.tymeboxed.action.SESSION_END_REMINDER" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.startup.InitializationProvider"

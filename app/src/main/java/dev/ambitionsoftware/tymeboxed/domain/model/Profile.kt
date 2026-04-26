@@ -50,6 +50,19 @@ data class Profile(
     }
 }
 
+/**
+ * Keeps [strategyId] aligned with [enableBreaks] for the focus-timer family,
+ * matching iOS where breaks are controlled by the toggle, not a mismatched
+ * [strategyId] with [enableBreaks] left over from a prior save.
+ */
+fun Profile.normalizedForBreaks(): Profile = when {
+    enableBreaks && strategyId == BlockingStrategyId.FOCUS_TIMER ->
+        copy(strategyId = BlockingStrategyId.FOCUS_TIMER_BREAK)
+    !enableBreaks && strategyId == BlockingStrategyId.FOCUS_TIMER_BREAK ->
+        copy(strategyId = BlockingStrategyId.FOCUS_TIMER)
+    else -> this
+}
+
 fun ProfileEntity.toDomain(blockedPackages: List<String>): Profile = Profile(
     id = id,
     name = name,

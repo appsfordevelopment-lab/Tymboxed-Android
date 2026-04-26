@@ -89,6 +89,25 @@ internal object InAppA11yNodes {
         }
     }
 
+    /**
+     * Like [hasSelectedLabel] but also matches checked nav items (some apps use
+     * [AccessibilityNodeInfo.isChecked] for the active bottom tab, not isSelected).
+     */
+    fun hasSelectedOrCheckedLabel(root: AccessibilityNodeInfo, needles: List<String>): Boolean {
+        val n = needles.map { it.lowercase(Locale.getDefault()) }
+        val found = findAnyNode(root) { node ->
+            if (!node.isSelected && !node.isChecked) return@findAnyNode false
+            val t = node.text?.toString()?.lowercase(Locale.getDefault())
+            val cd = node.contentDescription?.toString()?.lowercase(Locale.getDefault())
+            (t != null && n.any { t.contains(it) }) || (cd != null && n.any { cd.contains(it) })
+        }
+        return try {
+            found != null
+        } finally {
+            if (found != null) runCatching { found.recycle() }
+        }
+    }
+
     fun hasSelectedLabelInPackage(
         root: AccessibilityNodeInfo,
         needles: List<String>,

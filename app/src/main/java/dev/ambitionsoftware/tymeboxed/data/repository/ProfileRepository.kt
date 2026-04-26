@@ -3,6 +3,7 @@ package dev.ambitionsoftware.tymeboxed.data.repository
 import dev.ambitionsoftware.tymeboxed.data.db.dao.ProfileDao
 import dev.ambitionsoftware.tymeboxed.data.db.entities.BlockedAppEntity
 import dev.ambitionsoftware.tymeboxed.domain.model.Profile
+import dev.ambitionsoftware.tymeboxed.domain.model.normalizedForBreaks
 import dev.ambitionsoftware.tymeboxed.domain.model.toDomain
 import dev.ambitionsoftware.tymeboxed.domain.model.toEntity
 import javax.inject.Inject
@@ -23,32 +24,35 @@ class ProfileRepository @Inject constructor(
     private val sessionRepository: SessionRepository,
 ) {
     fun observeAll(): Flow<List<Profile>> =
-        profileDao.observeAllWithApps().map { list -> list.map { it.toDomain() } }
+        profileDao.observeAllWithApps().map { list ->
+            list.map { it.toDomain().normalizedForBreaks() }
+        }
 
     fun observeById(id: String): Flow<Profile?> =
-        profileDao.observeByIdWithApps(id).map { it?.toDomain() }
+        profileDao.observeByIdWithApps(id).map { it?.toDomain()?.normalizedForBreaks() }
 
     suspend fun findById(id: String): Profile? =
-        profileDao.getByIdWithApps(id)?.toDomain()
+        profileDao.getByIdWithApps(id)?.toDomain()?.normalizedForBreaks()
 
     suspend fun count(): Int = profileDao.count()
 
     suspend fun save(profile: Profile) {
-        val existing = profileDao.findById(profile.id)
-        val entity = profile.toEntity().copy(
+        val normalized = profile.normalizedForBreaks()
+        val existing = profileDao.findById(normalized.id)
+        val entity = normalized.toEntity().copy(
             updatedAt = System.currentTimeMillis(),
-            createdAt = existing?.createdAt ?: profile.createdAt,
+            createdAt = existing?.createdAt ?: normalized.createdAt,
         )
         if (existing == null) {
             profileDao.insertProfile(entity)
         } else {
             profileDao.updateProfile(entity)
         }
-        profileDao.clearBlockedApps(profile.id)
-        if (profile.blockedPackages.isNotEmpty()) {
+        profileDao.clearBlockedApps(normalized.id)
+        if (normalized.blockedPackages.isNotEmpty()) {
             profileDao.insertBlockedApps(
-                profile.blockedPackages.map { pkg ->
-                    BlockedAppEntity(profileId = profile.id, packageName = pkg)
+                normalized.blockedPackages.map { pkg ->
+                    BlockedAppEntity(profileId = normalized.id, packageName = pkg)
                 },
             )
         }

@@ -161,7 +161,13 @@ class ProfileEditViewModel @Inject constructor(
     }
 
     fun onStrategyChange(strategyId: String) {
-        _state.update { it.copy(strategyId = strategyId, errorMessage = null) }
+        _state.update { s ->
+            val enableBreaks = when (strategyId) {
+                BlockingStrategyId.FOCUS_TIMER_BREAK -> true
+                else -> false
+            }
+            s.copy(strategyId = strategyId, enableBreaks = enableBreaks, errorMessage = null)
+        }
     }
 
     fun onTimerMinutesChange(minutes: Int) {
@@ -173,7 +179,16 @@ class ProfileEditViewModel @Inject constructor(
     }
 
     fun onBreaksChange(enabled: Boolean) {
-        _state.update { it.copy(enableBreaks = enabled) }
+        _state.update { s ->
+            var sid = s.strategyId
+            when {
+                enabled && s.strategyId == BlockingStrategyId.FOCUS_TIMER ->
+                    sid = BlockingStrategyId.FOCUS_TIMER_BREAK
+                !enabled && s.strategyId == BlockingStrategyId.FOCUS_TIMER_BREAK ->
+                    sid = BlockingStrategyId.FOCUS_TIMER
+            }
+            s.copy(enableBreaks = enabled, strategyId = sid)
+        }
     }
 
     fun onBreakTimeChange(minutes: Int) {

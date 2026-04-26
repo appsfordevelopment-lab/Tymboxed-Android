@@ -137,6 +137,7 @@ import dev.ambitionsoftware.tymeboxed.service.ActiveBlockingState
 import dev.ambitionsoftware.tymeboxed.service.AppSessionController
 import dev.ambitionsoftware.tymeboxed.service.BlockingStateRestorer
 import dev.ambitionsoftware.tymeboxed.service.SessionBlockerService
+import dev.ambitionsoftware.tymeboxed.service.SessionReminderScheduler
 import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCard
 import dev.ambitionsoftware.tymeboxed.ui.screens.insights.ProfileInsightsScreen
 import dev.ambitionsoftware.tymeboxed.ui.theme.LocalAccentColor
@@ -158,6 +159,7 @@ class HomeViewModel @Inject constructor(
     private val appPreferences: AppPreferences,
     private val authRepository: AuthRepository,
     private val appSessionController: AppSessionController,
+    private val sessionReminderScheduler: SessionReminderScheduler,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
     val profiles: StateFlow<List<Profile>> = profileRepository.observeAll().stateIn(
@@ -265,6 +267,7 @@ class HomeViewModel @Inject constructor(
      */
     fun startSession(profileId: String, selectedTimerMinutes: Int? = null) {
         viewModelScope.launch {
+            sessionReminderScheduler.cancelAll()
             var profile = profileRepository.findById(profileId) ?: return@launch
 
             if (selectedTimerMinutes != null &&
@@ -338,7 +341,7 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun startBreakFromNfcScan(session: Session, profile: Profile) {
-        val breakMins = profile.strategyData?.toIntOrNull() ?: 15
+        val breakMins = profile.breakTimeInMinutes.coerceIn(1, 24 * 60)
         val endBreak = System.currentTimeMillis() + breakMins * 60_000L
         val updated = session.copy(
             isPauseActive = true,
@@ -721,15 +724,17 @@ private fun StrategyDurationBottomSheet(
     onConfirm: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val defaultMins = profile.strategyData?.toIntOrNull() ?: if (isBreakStrategy) 15 else 25
+    // strategyData = focus block length; break length is profile.breakTimeInMinutes (edit profile).
+    val defaultMins = profile.strategyData?.toIntOrNull() ?: 25
     var minutes by remember(profile.id, isBreakStrategy) {
         mutableIntStateOf(defaultMins.coerceIn(5, 180))
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val title = if (isBreakStrategy) "Break duration" else "Focus duration"
+    val title = "Focus duration"
     val desc = if (isBreakStrategy) {
-        "No blocking during the break. When time is up, focus blocking turns on again. " +
-            "Scan the device to start a break, then scan again while on a break to end the session."
+        "How long each focus block runs before you can take a break. Break length is set in the " +
+            "profile. During a break, blocking is off until the break ends or you end the session " +
+            "with a second scan."
     } else {
         "Blocking stays on until the timer runs out, or you scan your Tyme Boxed device to finish early."
     }

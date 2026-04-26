@@ -12,7 +12,10 @@ object BlockingStateRestorer {
 
     fun apply(profile: Profile, session: Session, blockedPackages: Set<String>) {
         val strategyId = profile.strategyId
-        val focusEnd = if (strategyId == BlockingStrategyId.FOCUS_TIMER && !session.isPauseActive) {
+        val inFocusPhase = !session.isPauseActive &&
+            (strategyId == BlockingStrategyId.FOCUS_TIMER ||
+                strategyId == BlockingStrategyId.FOCUS_TIMER_BREAK)
+        val focusEnd = if (inFocusPhase) {
             val mins = profile.strategyData?.toIntOrNull() ?: 25
             session.startTime + mins * 60_000L
         } else {
@@ -22,7 +25,7 @@ object BlockingStateRestorer {
             session.isPauseActive &&
             session.pauseStartTime != null
         ) {
-            val mins = profile.strategyData?.toIntOrNull() ?: 15
+            val mins = profile.breakTimeInMinutes.coerceIn(1, 24 * 60)
             session.pauseStartTime + mins * 60_000L
         } else {
             null

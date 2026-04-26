@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:2:1-124:12
-INJECTED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:2:1-124:12
-INJECTED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:2:1-124:12
-INJECTED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:2:1-124:12
+ADDED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:2:1-132:12
+INJECTED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:2:1-132:12
+INJECTED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:2:1-132:12
+INJECTED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:2:1-132:12
 MERGED from [androidx.work:work-runtime-ktx:2.9.1] /Users/jaykumaryadav/.gradle/caches/9.0.0/transforms/9249593ae44fb9e3137c7b01c98ad565/transformed/work-runtime-ktx-2.9.1/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.work:work-runtime:2.9.1] /Users/jaykumaryadav/.gradle/caches/9.0.0/transforms/a28d9368b0da6bf9fec018f00232a2da/transformed/work-runtime-2.9.1/AndroidManifest.xml:17:1-145:12
 MERGED from [com.google.android.gms:play-services-auth:21.3.0] /Users/jaykumaryadav/.gradle/caches/9.0.0/transforms/9308fa2cfc30a4ee343a3a170539c818/transformed/play-services-auth-21.3.0/AndroidManifest.xml:17:1-40:12
@@ -183,8 +183,8 @@ MERGED from [androidx.work:work-runtime:2.9.1] /Users/jaykumaryadav/.gradle/cach
 	android:name
 		ADDED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:45:22-76
 application
-ADDED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:47:5-123:19
-INJECTED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:47:5-123:19
+ADDED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:47:5-131:19
+INJECTED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:47:5-131:19
 MERGED from [androidx.work:work-runtime:2.9.1] /Users/jaykumaryadav/.gradle/caches/9.0.0/transforms/a28d9368b0da6bf9fec018f00232a2da/transformed/work-runtime-2.9.1/AndroidManifest.xml:28:5-143:19
 MERGED from [androidx.work:work-runtime:2.9.1] /Users/jaykumaryadav/.gradle/caches/9.0.0/transforms/a28d9368b0da6bf9fec018f00232a2da/transformed/work-runtime-2.9.1/AndroidManifest.xml:28:5-143:19
 MERGED from [com.google.android.gms:play-services-auth:21.3.0] /Users/jaykumaryadav/.gradle/caches/9.0.0/transforms/9308fa2cfc30a4ee343a3a170539c818/transformed/play-services-auth-21.3.0/AndroidManifest.xml:22:5-38:19
@@ -343,6 +343,18 @@ action#android.intent.action.LOCKED_BOOT_COMPLETED
 ADDED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:120:17-86
 	android:name
 		ADDED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:120:25-83
+receiver#dev.ambitionsoftware.tymeboxed.service.SessionReminderReceiver
+ADDED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:124:9-130:20
+	android:exported
+		ADDED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:126:13-37
+	android:name
+		ADDED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:125:13-60
+intent-filter#action:name:dev.ambitionsoftware.tymeboxed.action.SESSION_END_REMINDER
+ADDED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:127:13-129:29
+action#dev.ambitionsoftware.tymeboxed.action.SESSION_END_REMINDER
+ADDED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:128:17-101
+	android:name
+		ADDED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml:128:25-98
 uses-sdk
 INJECTED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /Users/jaykumaryadav/Desktop/Tyme-Boxed-Android/app/src/main/AndroidManifest.xml

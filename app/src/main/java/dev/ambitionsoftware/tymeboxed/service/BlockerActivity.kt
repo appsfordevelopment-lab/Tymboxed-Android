@@ -2,6 +2,7 @@ package dev.ambitionsoftware.tymeboxed.service
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -57,7 +58,8 @@ import kotlinx.coroutines.delay
  *
  * Modeled after Switchly's BlockerActivity — launched as a separate task
  * (excluded from recents) that covers the blocked app. The user can only
- * dismiss it by tapping "Go Back", which sends them to the home screen.
+ * dismiss it by tapping "Go Back", which sends them to the home screen
+ * (or to YouTube Home for in-app Shorts when [EXTRA_DISMISS_TO_YT_HOME] is set).
  *
  * Key design decisions:
  *  - Uses `FLAG_ACTIVITY_NEW_TASK` + `FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS`
@@ -128,7 +130,11 @@ class BlockerActivity : ComponentActivity() {
     }
 
     private fun handleClose() {
-        sendHome(this)
+        if (intent.getBooleanExtra(EXTRA_DISMISS_TO_YT_HOME, false)) {
+            openYouTubeHome(this)
+        } else {
+            sendHome(this)
+        }
         finish()
     }
 
@@ -137,6 +143,7 @@ class BlockerActivity : ComponentActivity() {
         private const val EXTRA_LABEL = "label"
         private const val EXTRA_HEADLINE = "headline"
         private const val EXTRA_BODY = "body"
+        private const val EXTRA_DISMISS_TO_YT_HOME = "dismiss_to_yt_home"
 
         /** True while the blocker overlay is visible — prevents duplicate launches. */
         @Volatile
@@ -157,6 +164,7 @@ class BlockerActivity : ComponentActivity() {
             label: String?,
             headline: String? = null,
             body: String? = null,
+            dismissToYouTubeHome: Boolean = false,
         ) {
             val i = Intent(context, BlockerActivity::class.java).apply {
                 addFlags(
@@ -169,6 +177,7 @@ class BlockerActivity : ComponentActivity() {
                 if (!label.isNullOrBlank()) putExtra(EXTRA_LABEL, label)
                 if (!headline.isNullOrBlank()) putExtra(EXTRA_HEADLINE, headline)
                 if (!body.isNullOrBlank()) putExtra(EXTRA_BODY, body)
+                putExtra(EXTRA_DISMISS_TO_YT_HOME, dismissToYouTubeHome)
             }
             context.startActivity(i)
         }
@@ -191,6 +200,7 @@ class BlockerActivity : ComponentActivity() {
             appLabel: String,
             title: String,
             message: String,
+            dismissToYouTubeHome: Boolean = false,
         ) {
             show(
                 context = context,
@@ -198,10 +208,23 @@ class BlockerActivity : ComponentActivity() {
                 label = appLabel,
                 headline = title,
                 body = message,
+                dismissToYouTubeHome = dismissToYouTubeHome,
             )
         }
 
-        /** Send user to the home screen. */
+        /**
+         * Opens the main YouTube app to the home / feed (not Shorts).
+         * Used when blocking Shorts so the user is taken to YouTube home under the overlay.
+         */
+        fun openYouTubeHome(context: Context) {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/")).apply {
+                setPackage("com.google.android.youtube")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            runCatching { context.startActivity(intent) }
+        }
+
+        /** Send user to the device home screen. */
         fun sendHome(context: Context) {
             val home = Intent(Intent.ACTION_MAIN).apply {
                 addCategory(Intent.CATEGORY_HOME)

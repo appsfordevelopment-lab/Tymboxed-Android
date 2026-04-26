@@ -400,6 +400,10 @@ string range_start
 string selected
 string session_channel_description
 string session_channel_name
+string session_reminder_channel_description
+string session_reminder_channel_name
+string session_reminder_default_body
+string session_reminder_title
 string settings_permissions_reliability_subtitle
 string settings_permissions_reliability_title
 string state_empty

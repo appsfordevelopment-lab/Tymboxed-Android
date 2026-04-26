@@ -2,6 +2,7 @@ package dev.ambitionsoftware.tymeboxed.service
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.ambitionsoftware.tymeboxed.data.repository.ProfileRepository
 import dev.ambitionsoftware.tymeboxed.data.repository.SessionRepository
 import dev.ambitionsoftware.tymeboxed.domain.model.Session
 import javax.inject.Inject
@@ -18,13 +19,25 @@ import kotlinx.coroutines.withContext
 class AppSessionController @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val sessionRepository: SessionRepository,
+    private val profileRepository: ProfileRepository,
+    private val sessionReminderScheduler: SessionReminderScheduler,
 ) {
 
+    /**
+     * Ends the focus session, stops the blocking service, and (per iOS
+     * [StrategyManager] `case .ended`) schedules a local notification if
+     * [dev.ambitionsoftware.tymeboxed.domain.model.Profile.reminderTimeSeconds] is set.
+     */
     suspend fun endSessionCompletely() = withContext(Dispatchers.IO) {
+        val active = sessionRepository.findActive()
+        val profileForReminder = active?.let { profileRepository.findById(it.profileId) }
         ActiveBlockingState.deactivate()
         sessionRepository.resetActive()
         withContext(Dispatchers.Main) {
             appContext.startService(SessionBlockerService.stopIntent(appContext))
+        }
+        if (profileForReminder != null) {
+            sessionReminderScheduler.scheduleAfterSessionEnd(profileForReminder)
         }
     }
 

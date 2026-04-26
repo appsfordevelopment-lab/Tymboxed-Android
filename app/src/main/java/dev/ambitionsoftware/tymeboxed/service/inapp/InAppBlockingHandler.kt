@@ -11,8 +11,9 @@ import dev.ambitionsoftware.tymeboxed.R
 
 /**
  * In-app surface blocking (YouTube, Instagram, X, Snapchat) — policy and a11y heuristics
- * are adapted from Switchly
- * [SwitchlyAccessibilityService.maybeInAppBlock](https://gitlab.com/Saltyy/switchly-public).
+ * are adapted from [Switchly public](https://gitlab.com/Saltyy/switchly-public): each
+ * [InAppToggleKeys] is evaluated independently; detection/scoring for a surface only runs
+ * when that toggle is enabled so e.g. “Block Shorts” only affects the Shorts surface.
  */
 object InAppBlockingHandler {
 
@@ -195,6 +196,17 @@ object InAppBlockingHandler {
         title: String,
         message: String,
         backCount: Int = 1,
+        /**
+         * When false, only the back key sequence runs.
+         * No full-screen [BlockerActivity] (used for some non-YouTube cases).
+         */
+        showInAppBlocker: Boolean = true,
+        /**
+         * YouTube Shorts: jump to the YouTube home feed, then show the in-app overlay.
+         * Dismiss is wired to return to YouTube home via [BlockerActivity.showInApp] extras.
+         */
+        openYouTubeHomeFirst: Boolean = false,
+        dismissToYouTubeHome: Boolean = false,
     ) {
         val now = System.currentTimeMillis()
         val sk = "$pkg|$title"
@@ -214,6 +226,25 @@ object InAppBlockingHandler {
             surfaceEvidenceCount.remove(e)
         }
 
+        val ctx = service.applicationContext
+        if (openYouTubeHomeFirst && showInAppBlocker) {
+            mainHandler.post {
+                runCatching { BlockerActivity.openYouTubeHome(ctx) }
+            }
+            mainHandler.postDelayed(
+                {
+                    runCatching {
+                        BlockerActivity.showInApp(
+                            ctx, pkg, appLabel, title, message,
+                            dismissToYouTubeHome = dismissToYouTubeHome,
+                        )
+                    }
+                },
+                200L,
+            )
+            return
+        }
+
         if (backCount > 0) {
             var step = 0
             val runBack = object : Runnable {
@@ -223,33 +254,53 @@ object InAppBlockingHandler {
                         step++
                         mainHandler.postDelayed(this, 120L)
                     } else {
-                        mainHandler.postDelayed({
-                            runCatching {
-                                BlockerActivity.showInApp(
-                                    service.applicationContext, pkg, appLabel, title, message,
-                                )
-                            }
-                        }, 40L)
+                        if (showInAppBlocker) {
+                            mainHandler.postDelayed({
+                                runCatching {
+                                    BlockerActivity.showInApp(
+                                        ctx, pkg, appLabel, title, message,
+                                        dismissToYouTubeHome = dismissToYouTubeHome,
+                                    )
+                                }
+                            }, 40L)
+                        }
                     }
                 }
             }
             mainHandler.post(runBack)
         } else {
-            mainHandler.postDelayed({
-                runCatching {
-                    BlockerActivity.showInApp(
-                        service.applicationContext, pkg, appLabel, title, message,
-                    )
-                }
-            }, 30L)
+            if (showInAppBlocker) {
+                mainHandler.postDelayed({
+                    runCatching {
+                        BlockerActivity.showInApp(
+                            ctx, pkg, appLabel, title, message,
+                            dismissToYouTubeHome = dismissToYouTubeHome,
+                        )
+                    }
+                }, 30L)
+            }
         }
     }
 
     // --- YouTube ---------------------------------------------------------------------------
 
+    /**
+     * True when the user is in the **Shorts feed** (Shorts bottom-nav tab is selected), not
+     * when the word "Shorts" appears on Home/Subscriptions (that caused false blocks of the
+     * whole app via [BlockerActivity]).
+     */
     private fun isYouTubeShortsScreen(root: AccessibilityNodeInfo, event: AccessibilityEvent?): Boolean {
-        return InAppA11yNodes.nodeTextMatches(root, listOf("shorts", "short")) ||
-            InAppA11yNodes.eventTextMatches(event, listOf("shorts", "short"))
+        if (InAppA11yNodes.hasSelectedOrCheckedLabel(root, listOf("shorts"))) return true
+        // YouTube may expose the active tab with focus/selected events on some versions.
+        val et = event?.eventType ?: 0
+        if (et == AccessibilityEvent.TYPE_VIEW_SELECTED || et == AccessibilityEvent.TYPE_VIEW_FOCUSED) {
+            if (InAppA11yNodes.eventTextMatches(event, listOf("shorts")) &&
+                !InAppA11yNodes.eventTextMatches(event, listOf("search", "home", "subscriptions", "library"))
+            ) {
+                return true
+            }
+        }
+        return false
     }
 
     private fun isYouTubeSearchScreen(root: AccessibilityNodeInfo, event: AccessibilityEvent?): Boolean {
@@ -273,30 +324,48 @@ object InAppBlockingHandler {
         now: Long,
     ): Boolean {
         val c = service.applicationContext
-        val eventType = event?.eventType ?: 0
-        val ytQuickEvent =
-            eventType == AccessibilityEvent.TYPE_VIEW_CLICKED ||
-                eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED ||
-                eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED ||
-                eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-        val shortsNeed = if (ytQuickEvent) 1 else 2
-        val shortsDetected = isYouTubeShortsScreen(root, event)
-        val isShorts = surfaceConfirmed("yt:shorts", shortsDetected, required = shortsNeed)
-        if (isShorts) {
-            currentSurfaceKey = "yt:shorts"
-            currentSurfacePkg = InAppToggleKeys.YOUTUBE
-            val m = timedBlockMsg(
-                c,
-                prefs(c, InAppToggleKeys.KEY_BLOCK_YT_SHORTS),
-                c.getString(R.string.in_app_label_shorts),
-            )
-            if (m != null) {
-                softBlockSurface(
-                    service, InAppToggleKeys.YOUTUBE, safeAppLabel(service, InAppToggleKeys.YOUTUBE), m.first, m.second, backCount = 1,
+        val blockShorts = prefs(c, InAppToggleKeys.KEY_BLOCK_YT_SHORTS)
+        // Only score / block Shorts when that toggle is on (Switchly-style: one toggle = one feature).
+        if (blockShorts) {
+            val eventType = event?.eventType ?: 0
+            val ytQuickEvent =
+                eventType == AccessibilityEvent.TYPE_VIEW_CLICKED ||
+                    eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED ||
+                    eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED ||
+                    eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+            val shortsNeed = if (ytQuickEvent) 1 else 2
+            val shortsDetected = isYouTubeShortsScreen(root, event)
+            val isShorts = surfaceConfirmed("yt:shorts", shortsDetected, required = shortsNeed)
+            if (isShorts) {
+                currentSurfaceKey = "yt:shorts"
+                currentSurfacePkg = InAppToggleKeys.YOUTUBE
+                val m = timedBlockMsg(
+                    c,
+                    true,
+                    c.getString(R.string.in_app_label_shorts),
                 )
-                return true
+                if (m != null) {
+                    softBlockSurface(
+                        service,
+                        InAppToggleKeys.YOUTUBE,
+                        safeAppLabel(service, InAppToggleKeys.YOUTUBE),
+                        m.first,
+                        m.second,
+                        backCount = 0,
+                        showInAppBlocker = true,
+                        openYouTubeHomeFirst = true,
+                        dismissToYouTubeHome = true,
+                    )
+                    return true
+                }
+            } else {
+                if (currentSurfacePkg == InAppToggleKeys.YOUTUBE && currentSurfaceKey == "yt:shorts") {
+                    currentSurfaceKey = null
+                    currentSurfacePkg = null
+                }
             }
         } else {
+            clearSurfaceEvidence("yt:shorts")
             if (currentSurfacePkg == InAppToggleKeys.YOUTUBE && currentSurfaceKey == "yt:shorts") {
                 currentSurfaceKey = null
                 currentSurfacePkg = null
@@ -384,12 +453,19 @@ object InAppBlockingHandler {
         val storiesNow = isInstagramStoriesViewer(root, event)
         val stateById = instagramState(root, event)
 
-        if (storiesNow) {
+        if (storiesNow && blockStories) {
             currentSurfaceKey = "ig:stories"
             currentSurfacePkg = InAppToggleKeys.INSTAGRAM
-            val m = timedBlockMsg(c, blockStories, c.getString(R.string.in_app_label_stories))
+            val m = timedBlockMsg(c, true, c.getString(R.string.in_app_label_stories))
             if (m != null) {
-                softBlockSurface(service, InAppToggleKeys.INSTAGRAM, safeAppLabel(service, InAppToggleKeys.INSTAGRAM), m.first, m.second, backCount = 1)
+                softBlockSurface(
+                    service,
+                    InAppToggleKeys.INSTAGRAM,
+                    safeAppLabel(service, InAppToggleKeys.INSTAGRAM),
+                    m.first,
+                    m.second,
+                    backCount = 1,
+                )
                 return true
             }
         }

@@ -7,6 +7,7 @@ import android.os.Build
 import android.util.Log
 import dagger.hilt.android.AndroidEntryPoint
 import dev.ambitionsoftware.tymeboxed.data.db.TymeBoxedDatabase
+import dev.ambitionsoftware.tymeboxed.domain.model.normalizedForBreaks
 import dev.ambitionsoftware.tymeboxed.domain.model.toDomain
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -61,7 +62,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
                     return@launch
                 }
 
-                val profile = profileWithApps.toDomain()
+                val profile = profileWithApps.toDomain().normalizedForBreaks()
                 val session = activeSession.toDomain()
                 val blockedPkgs = profile.blockedPackages.toSet()
 
