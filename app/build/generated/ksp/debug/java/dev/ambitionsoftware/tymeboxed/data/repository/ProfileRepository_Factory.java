@@ -25,20 +25,26 @@ import javax.inject.Provider;
 public final class ProfileRepository_Factory implements Factory<ProfileRepository> {
   private final Provider<ProfileDao> profileDaoProvider;
 
-  public ProfileRepository_Factory(Provider<ProfileDao> profileDaoProvider) {
+  private final Provider<SessionRepository> sessionRepositoryProvider;
+
+  public ProfileRepository_Factory(Provider<ProfileDao> profileDaoProvider,
+      Provider<SessionRepository> sessionRepositoryProvider) {
     this.profileDaoProvider = profileDaoProvider;
+    this.sessionRepositoryProvider = sessionRepositoryProvider;
   }
 
   @Override
   public ProfileRepository get() {
-    return newInstance(profileDaoProvider.get());
+    return newInstance(profileDaoProvider.get(), sessionRepositoryProvider.get());
   }
 
-  public static ProfileRepository_Factory create(Provider<ProfileDao> profileDaoProvider) {
-    return new ProfileRepository_Factory(profileDaoProvider);
+  public static ProfileRepository_Factory create(Provider<ProfileDao> profileDaoProvider,
+      Provider<SessionRepository> sessionRepositoryProvider) {
+    return new ProfileRepository_Factory(profileDaoProvider, sessionRepositoryProvider);
   }
 
-  public static ProfileRepository newInstance(ProfileDao profileDao) {
-    return new ProfileRepository(profileDao);
+  public static ProfileRepository newInstance(ProfileDao profileDao,
+      SessionRepository sessionRepository) {
+    return new ProfileRepository(profileDao, sessionRepository);
   }
 }

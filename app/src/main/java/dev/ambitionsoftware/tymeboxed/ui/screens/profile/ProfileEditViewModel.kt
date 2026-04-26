@@ -13,6 +13,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.ambitionsoftware.tymeboxed.domain.model.BlockingStrategyId
 import dev.ambitionsoftware.tymeboxed.domain.model.Profile
 import dev.ambitionsoftware.tymeboxed.data.repository.ProfileRepository
+import dev.ambitionsoftware.tymeboxed.data.repository.SessionRepository
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -52,12 +53,15 @@ data class ProfileEditUiState(
     val savedSuccessfully: Boolean = false,
     val deletedSuccessfully: Boolean = false,
     val errorMessage: String? = null,
+    /** True when a non-ended session is using this profile — delete must be blocked. */
+    val isActiveSessionForThisProfile: Boolean = false,
 )
 
 @HiltViewModel
 class ProfileEditViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val profileRepository: ProfileRepository,
+    private val sessionRepository: SessionRepository,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -76,7 +80,15 @@ class ProfileEditViewModel @Inject constructor(
 
     init {
         loadInstalledApps()
-        if (!isNew) loadProfile()
+        if (!isNew) {
+            loadProfile()
+            viewModelScope.launch {
+                sessionRepository.activeSession.collect { session ->
+                    val locked = session?.profileId == profileId
+                    _state.update { it.copy(isActiveSessionForThisProfile = locked) }
+                }
+            }
+        }
     }
 
     private fun loadProfile() {
@@ -334,6 +346,12 @@ class ProfileEditViewModel @Inject constructor(
 
     fun delete() {
         if (isNew) return
+        if (_state.value.isActiveSessionForThisProfile) {
+            _state.update {
+                it.copy(errorMessage = "End the focus session before deleting this profile.")
+            }
+            return
+        }
         _state.update { it.copy(isDeleting = true) }
         viewModelScope.launch {
             try {

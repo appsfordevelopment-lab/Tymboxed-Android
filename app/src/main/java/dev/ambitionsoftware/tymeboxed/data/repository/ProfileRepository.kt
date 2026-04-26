@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.map
 @Singleton
 class ProfileRepository @Inject constructor(
     private val profileDao: ProfileDao,
+    private val sessionRepository: SessionRepository,
 ) {
     fun observeAll(): Flow<List<Profile>> =
         profileDao.observeAllWithApps().map { list -> list.map { it.toDomain() } }
@@ -54,6 +55,12 @@ class ProfileRepository @Inject constructor(
     }
 
     suspend fun delete(id: String) {
+        val active = sessionRepository.findActive()
+        if (active != null && active.profileId == id) {
+            error(
+                "Cannot delete this profile while its focus session is active. End the session first.",
+            )
+        }
         val entity = profileDao.findById(id) ?: return
         profileDao.deleteProfile(entity)
     }

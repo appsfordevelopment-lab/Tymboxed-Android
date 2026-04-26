@@ -4,7 +4,7 @@
             "outputFile": "dev.ambitionsoftware.tymeboxed.app-mergeDebugResources-2:/values-ru/values-ru.xml",
             "map": [
                 {
-                    "source": "/private/var/folders/9y/_rr0bb8x0d3c07mgz01fj0p00000gn/T/cursor-sandbox-cache/28f97842d9b327deca74d744afd8c288/gradle/caches/9.0.0/transforms/8c5ac2d896d637d3b6cf128facf7543d/transformed/material3-release/res/values-ru/values-ru.xml",
+                    "source": "/private/var/folders/9y/_rr0bb8x0d3c07mgz01fj0p00000gn/T/cursor-sandbox-cache/7b38b2734e5432a5de65a24d65c826be/gradle/caches/9.0.0/transforms/8c5ac2d896d637d3b6cf128facf7543d/transformed/material3-release/res/values-ru/values-ru.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
@@ -21,7 +21,7 @@
                     }
                 },
                 {
-                    "source": "/private/var/folders/9y/_rr0bb8x0d3c07mgz01fj0p00000gn/T/cursor-sandbox-cache/28f97842d9b327deca74d744afd8c288/gradle/caches/9.0.0/transforms/7a83c6492c4ad3e669c77ceb7f29346d/transformed/core-1.13.1/res/values-ru/values-ru.xml",
+                    "source": "/private/var/folders/9y/_rr0bb8x0d3c07mgz01fj0p00000gn/T/cursor-sandbox-cache/7b38b2734e5432a5de65a24d65c826be/gradle/caches/9.0.0/transforms/7a83c6492c4ad3e669c77ceb7f29346d/transformed/core-1.13.1/res/values-ru/values-ru.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9",
                         "startColumns": "4,4,4,4,4,4,4,4",
@@ -38,7 +38,7 @@
                     }
                 },
                 {
-                    "source": "/private/var/folders/9y/_rr0bb8x0d3c07mgz01fj0p00000gn/T/cursor-sandbox-cache/28f97842d9b327deca74d744afd8c288/gradle/caches/9.0.0/transforms/858ceed10d8b6e4a4b26675d56c281bf/transformed/ui-release/res/values-ru/values-ru.xml",
+                    "source": "/private/var/folders/9y/_rr0bb8x0d3c07mgz01fj0p00000gn/T/cursor-sandbox-cache/7b38b2734e5432a5de65a24d65c826be/gradle/caches/9.0.0/transforms/858ceed10d8b6e4a4b26675d56c281bf/transformed/ui-release/res/values-ru/values-ru.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
@@ -55,24 +55,7 @@
                     }
                 },
                 {
-                    "source": "/private/var/folders/9y/_rr0bb8x0d3c07mgz01fj0p00000gn/T/cursor-sandbox-cache/28f97842d9b327deca74d744afd8c288/gradle/caches/9.0.0/transforms/5bde96619c3c9a98bfca28363ebdda39/transformed/play-services-basement-18.4.0/res/values-ru/values.xml",
-                    "from": {
-                        "startLines": "4",
-                        "startColumns": "0",
-                        "startOffsets": "195",
-                        "endColumns": "152",
-                        "endOffsets": "347"
-                    },
-                    "to": {
-                        "startLines": "19",
-                        "startColumns": "4",
-                        "startOffsets": "2007",
-                        "endColumns": "156",
-                        "endOffsets": "2159"
-                    }
-                },
-                {
-                    "source": "/private/var/folders/9y/_rr0bb8x0d3c07mgz01fj0p00000gn/T/cursor-sandbox-cache/28f97842d9b327deca74d744afd8c288/gradle/caches/9.0.0/transforms/06139aafc0e99d8ddd7ff372685e1724/transformed/play-services-base-18.5.0/res/values-ru/values.xml",
+                    "source": "/private/var/folders/9y/_rr0bb8x0d3c07mgz01fj0p00000gn/T/cursor-sandbox-cache/7b38b2734e5432a5de65a24d65c826be/gradle/caches/9.0.0/transforms/06139aafc0e99d8ddd7ff372685e1724/transformed/play-services-base-18.5.0/res/values-ru/values.xml",
                     "from": {
                         "startLines": "4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20",
                         "startColumns": "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0",
@@ -89,7 +72,7 @@
                     }
                 },
                 {
-                    "source": "/private/var/folders/9y/_rr0bb8x0d3c07mgz01fj0p00000gn/T/cursor-sandbox-cache/28f97842d9b327deca74d744afd8c288/gradle/caches/9.0.0/transforms/10082bcbb66db536851ead7e2d452022/transformed/foundation-release/res/values-ru/values-ru.xml",
+                    "source": "/private/var/folders/9y/_rr0bb8x0d3c07mgz01fj0p00000gn/T/cursor-sandbox-cache/7b38b2734e5432a5de65a24d65c826be/gradle/caches/9.0.0/transforms/10082bcbb66db536851ead7e2d452022/transformed/foundation-release/res/values-ru/values-ru.xml",
                     "from": {
                         "startLines": "2,3",
                         "startColumns": "4,4",
@@ -103,6 +86,23 @@
                         "startOffsets": "11024,11112",
                         "endColumns": "87,90",
                         "endOffsets": "11107,11198"
+                    }
+                },
+                {
+                    "source": "/private/var/folders/9y/_rr0bb8x0d3c07mgz01fj0p00000gn/T/cursor-sandbox-cache/7b38b2734e5432a5de65a24d65c826be/gradle/caches/9.0.0/transforms/5bde96619c3c9a98bfca28363ebdda39/transformed/play-services-basement-18.4.0/res/values-ru/values.xml",
+                    "from": {
+                        "startLines": "4",
+                        "startColumns": "0",
+                        "startOffsets": "195",
+                        "endColumns": "152",
+                        "endOffsets": "347"
+                    },
+                    "to": {
+                        "startLines": "19",
+                        "startColumns": "4",
+                        "startOffsets": "2007",
+                        "endColumns": "156",
+                        "endOffsets": "2159"
                     }
                 }
             ]

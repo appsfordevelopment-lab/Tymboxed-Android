@@ -58,6 +58,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -73,6 +74,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
@@ -2198,6 +2200,14 @@ private fun ProfileCard(
     val accent = LocalAccentColor.current.value
     val cs = MaterialTheme.colorScheme
     val isDark = isSystemInDarkTheme()
+    var showEditBlockedDialog by remember(profile.id) { mutableStateOf(false) }
+    val requestEdit: () -> Unit = {
+        if (isActive) {
+            showEditBlockedDialog = true
+        } else {
+            onEdit()
+        }
+    }
     val cardShape = RoundedCornerShape(24.dp)
     val strategyIcon = when (strategy?.icon) {
         "nfc" -> Icons.Default.Nfc
@@ -2254,11 +2264,11 @@ private fun ProfileCard(
                     color = cs.onSurface,
                     modifier = Modifier
                         .weight(1f)
-                        .clickable { onEdit() },
+                        .clickable { requestEdit() },
                 )
                 ProfileCardOverflowMenu(
                     profileId = profile.id,
-                    onEdit = onEdit,
+                    onEdit = requestEdit,
                     onInsights = onInsights,
                     onStart = onStart,
                     isActive = isActive,
@@ -2353,6 +2363,29 @@ private fun ProfileCard(
                     onHoldComplete = onStart,
                 )
             }
+        }
+
+        if (showEditBlockedDialog) {
+            AlertDialog(
+                onDismissRequest = { showEditBlockedDialog = false },
+                title = {
+                    Text(
+                        "Session running",
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                },
+                text = {
+                    Text(
+                        "A focus session is using this profile. End the session before you can edit it.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { showEditBlockedDialog = false }) {
+                        Text("OK")
+                    }
+                },
+            )
         }
     }
 }

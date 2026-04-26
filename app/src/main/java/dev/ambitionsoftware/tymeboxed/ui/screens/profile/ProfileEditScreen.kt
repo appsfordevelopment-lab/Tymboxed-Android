@@ -132,6 +132,7 @@ fun ProfileEditScreen(
                             onDuplicate = { vm.duplicateProfile() },
                             onViewSessions = { showSessions = true },
                             onDeleteFromMenu = { showOverflowDeleteConfirm = true },
+                            deleteEnabled = !state.isActiveSessionForThisProfile,
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                     }
@@ -167,6 +168,20 @@ fun ProfileEditScreen(
                                 color = MaterialTheme.colorScheme.error,
                             )
                         }
+                    }
+                }
+
+                if (state.isActiveSessionForThisProfile) {
+                    SettingsCard {
+                        Text(
+                            text = "A focus session is using this profile. You can still save changes. " +
+                                "End the session on the home screen before you can delete this profile.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
                     }
                 }
 
@@ -252,6 +267,7 @@ fun ProfileEditScreen(
                 if (!state.isNew) {
                     DeleteSection(
                         isDeleting = state.isDeleting,
+                        canDelete = !state.isActiveSessionForThisProfile,
                         onDelete = vm::delete,
                     )
                 }
@@ -311,6 +327,7 @@ private fun ProfileEditTopActionPill(
     onDuplicate: () -> Unit,
     onViewSessions: () -> Unit,
     onDeleteFromMenu: () -> Unit,
+    deleteEnabled: Boolean = true,
 ) {
     val cs = MaterialTheme.colorScheme
     val isDark = isSystemInDarkTheme()
@@ -416,7 +433,7 @@ private fun ProfileEditTopActionPill(
                 text = {
                     Text(
                         "Delete Profile",
-                        color = errorColor,
+                        color = if (deleteEnabled) errorColor else errorColor.copy(alpha = 0.38f),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 },
@@ -424,10 +441,11 @@ private fun ProfileEditTopActionPill(
                     Icon(
                         Icons.Default.Delete,
                         contentDescription = null,
-                        tint = errorColor,
+                        tint = if (deleteEnabled) errorColor else errorColor.copy(alpha = 0.38f),
                         modifier = Modifier.size(22.dp),
                     )
                 },
+                enabled = deleteEnabled,
                 onClick = {
                     menuExpanded = false
                     onDeleteFromMenu()
@@ -1068,6 +1086,7 @@ private fun NotificationsSection(
 @Composable
 private fun DeleteSection(
     isDeleting: Boolean,
+    canDelete: Boolean = true,
     onDelete: () -> Unit,
 ) {
     var showConfirmation by remember { mutableStateOf(false) }
@@ -1079,6 +1098,7 @@ private fun DeleteSection(
         backgroundColor = MaterialTheme.colorScheme.error,
         contentColor = MaterialTheme.colorScheme.onError,
         isLoading = isDeleting,
+        enabled = canDelete,
     )
 
     if (showConfirmation) {

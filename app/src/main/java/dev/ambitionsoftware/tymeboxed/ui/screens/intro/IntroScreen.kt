@@ -77,6 +77,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle as UiTextStyle
@@ -90,6 +91,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -106,8 +108,89 @@ import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCard
 import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCardDivider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import android.content.res.Configuration
+import androidx.compose.foundation.text.ClickableText
 
 private const val OtpLength = 6
+
+/** iOS-style full-bleed connect / permissions explainer: true black/white, muted body, inverted CTA. */
+private data class OnboardingConnectPalette(
+    val pageBackground: Color,
+    val title: Color,
+    val body: Color,
+    val link: Color,
+    val backButtonBackground: Color,
+    val backButtonContent: Color,
+    val ctaBackground: Color,
+    val ctaContent: Color,
+    val iconTint: Color,
+    val sectionTitle: Color,
+    val cardSectionLabel: Color,
+    val successGreen: Color,
+)
+
+@Composable
+private fun rememberOnboardingConnectPalette(): OnboardingConnectPalette {
+    val dark = isSystemInDarkTheme()
+    return remember(dark) {
+        if (dark) {
+            OnboardingConnectPalette(
+                pageBackground = Color.Black,
+                title = Color.White,
+                body = Color(0xFFA1A1A1),
+                link = Color(0xFF007AFF),
+                backButtonBackground = Color.White.copy(alpha = 0.12f),
+                backButtonContent = Color.White,
+                ctaBackground = Color.White,
+                ctaContent = Color.Black,
+                iconTint = Color.White,
+                sectionTitle = Color.White,
+                cardSectionLabel = Color(0xFF8E8E93),
+                successGreen = Color(0xFF32D74B),
+            )
+        } else {
+            OnboardingConnectPalette(
+                pageBackground = Color(0xFFFFFFFF),
+                title = Color.Black,
+                body = Color(0xFF3C3C43),
+                link = Color(0xFF007AFF),
+                backButtonBackground = Color(0xFFE5E5EA),
+                backButtonContent = Color.Black,
+                ctaBackground = Color.Black,
+                ctaContent = Color.White,
+                iconTint = Color.Black,
+                sectionTitle = Color.Black,
+                cardSectionLabel = Color(0xFF636366),
+                successGreen = Color(0xFF2E7D32),
+            )
+        }
+    }
+}
+
+@Composable
+private fun OnboardingFullBleedSystemBarsEffect() {
+    val view = LocalView.current
+    val context = LocalContext.current
+    val dark = isSystemInDarkTheme()
+    DisposableEffect(dark) {
+        val act = context as? ComponentActivity
+        if (act != null) {
+            val controller = WindowCompat.getInsetsController(act.window, view)
+            val lightStatusNavIcons = !dark
+            controller.isAppearanceLightStatusBars = lightStatusNavIcons
+            controller.isAppearanceLightNavigationBars = lightStatusNavIcons
+        }
+        onDispose {
+            val act2 = context as? ComponentActivity ?: return@onDispose
+            val isNight = (act2.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES
+            WindowCompat.getInsetsController(act2.window, view).apply {
+                isAppearanceLightStatusBars = !isNight
+                isAppearanceLightNavigationBars = !isNight
+            }
+        }
+    }
+}
 
 /**
  * Onboarding: welcome → email → OTP verify → blocking explainer → permissions.
@@ -862,19 +945,20 @@ private fun ConnectExplainerStep(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    val cs = MaterialTheme.colorScheme
+    val p = rememberOnboardingConnectPalette()
     val scroll = rememberScrollState()
+    OnboardingFullBleedSystemBarsEffect()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(cs.background)
+            .background(p.pageBackground)
             .statusBarsPadding(),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(horizontal = 24.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             FilledIconButton(
@@ -882,8 +966,8 @@ private fun ConnectExplainerStep(
                 modifier = Modifier.size(40.dp),
                 shape = CircleShape,
                 colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = cs.surfaceContainerHigh,
-                    contentColor = cs.onSurface,
+                    containerColor = p.backButtonBackground,
+                    contentColor = p.backButtonContent,
                 ),
             ) {
                 Icon(
@@ -899,58 +983,58 @@ private fun ConnectExplainerStep(
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(scroll)
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = 24.dp),
         ) {
             Text(
-                text = "Connect Tyme Boxed on this device",
-                style = MaterialTheme.typography.headlineSmall,
+                text = "Connect Tyme Boxed\non this device",
+                color = p.title,
+                fontSize = 34.sp,
+                lineHeight = 40.sp,
                 fontWeight = FontWeight.Bold,
-                color = cs.onBackground,
-                lineHeight = 28.sp,
             )
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             ConnectExplainerRow(
+                palette = p,
                 icon = Icons.Filled.Settings,
                 title = "How you'll use this",
-                body = "Granting access lets Tyme Boxed know which app is in the foreground and " +
-                    "show a blocking screen for apps and sites you restrict during focus sessions. " +
-                    "On Android this uses Accessibility and usage access—similar in spirit to " +
-                    "Screen Time on iPhone.",
-                iconTint = cs.primary,
+                body = "Granting access lets you choose which apps to block in your profiles. " +
+                    "Tyme Boxed uses Accessibility and usage access to show a blocking screen " +
+                    "when a restricted app or site is open while you're in a focus session.",
             )
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(30.dp))
+            val privacyText = buildAnnotatedString {
+                append("We never see which apps you block or your browsing history. ")
+                append("Your information stays private and stored only on your device. ")
+                pushStringAnnotation(
+                    tag = "privacy",
+                    annotation = "https://www.tymeboxed.app/privacy",
+                )
+                withStyle(
+                    SpanStyle(
+                        color = p.link,
+                        fontWeight = FontWeight.SemiBold,
+                        textDecoration = TextDecoration.Underline,
+                    ),
+                ) {
+                    append("Learn more in our privacy policy.")
+                }
+                pop()
+            }
             ConnectExplainerRow(
+                palette = p,
                 icon = Icons.Filled.Lock,
                 title = "How we'll use this",
-                body = "We never see which apps you block or your browsing history. Your choices " +
-                    "stay private and stored on your device.",
-                iconTint = cs.primary,
-                footerLink = {
-                    val annotated = buildAnnotatedString {
-                        pushStringAnnotation(
-                            tag = "privacy",
-                            annotation = "https://www.tymeboxed.app/privacy",
-                        )
-                        withStyle(
-                            style = SpanStyle(
-                                color = cs.primary,
-                                fontWeight = FontWeight.Medium,
-                                textDecoration = TextDecoration.Underline,
-                            ),
-                        ) {
-                            append("Learn more in our privacy policy")
-                        }
-                        pop()
-                    }
-                    androidx.compose.foundation.text.ClickableText(
-                        text = annotated,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = cs.onSurfaceVariant,
-                            lineHeight = 20.sp,
+                bodyAnnotated = {
+                    ClickableText(
+                        text = privacyText,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = p.body,
+                            fontSize = 15.sp,
+                            lineHeight = 22.sp,
                         ),
                         onClick = { offset ->
-                            annotated.getStringAnnotations(start = offset, end = offset)
+                            privacyText.getStringAnnotations(start = offset, end = offset)
                                 .firstOrNull()?.let { sa ->
                                     context.startActivity(
                                         Intent(Intent.ACTION_VIEW, sa.item.toUri()),
@@ -960,13 +1044,13 @@ private fun ConnectExplainerStep(
                     )
                 },
             )
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(30.dp))
             ConnectExplainerRow(
+                palette = p,
                 icon = Icons.Filled.Star,
                 title = "Why it matters",
-                body = "This is how Tyme Boxed helps you create focused, intentional time—without " +
+                body = "This is how Tyme Boxed helps you create focused, intentional time, without " +
                     "deleting apps.",
-                iconTint = cs.primary,
             )
             Spacer(modifier = Modifier.height(24.dp))
         }
@@ -975,20 +1059,25 @@ private fun ConnectExplainerStep(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 24.dp)
                 .padding(top = 4.dp, bottom = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(
-                text = "On the next screen, tap Grant beside each permission. Android may open " +
-                    "Settings—use the back gesture or button to return here when you're done.",
-                style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurfaceVariant,
-                lineHeight = 18.sp,
-                modifier = Modifier.padding(bottom = 12.dp),
-            )
             ActionButton(
                 title = "Allow access",
                 onClick = onContinue,
+                backgroundColor = p.ctaBackground,
+                contentColor = p.ctaContent,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "On the next screen, tap Grant beside each permission. Android may open " +
+                    "Settings—use the back gesture to return here.",
+                style = MaterialTheme.typography.bodySmall,
+                color = p.body,
+                lineHeight = 18.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
@@ -996,49 +1085,47 @@ private fun ConnectExplainerStep(
 
 @Composable
 private fun ConnectExplainerRow(
+    palette: OnboardingConnectPalette,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
-    body: String,
-    iconTint: Color,
-    footerLink: (@Composable () -> Unit)? = null,
+    body: String? = null,
+    bodyAnnotated: (@Composable () -> Unit)? = null,
 ) {
-    val cs = MaterialTheme.colorScheme
+    val sectionTitle = MaterialTheme.typography.bodyLarge.copy(
+        color = palette.sectionTitle,
+        fontSize = 17.sp,
+        lineHeight = 22.sp,
+        fontWeight = FontWeight.Bold,
+    )
+    val bodyStyle = MaterialTheme.typography.bodyMedium.copy(
+        color = palette.body,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
+    )
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(cs.surfaceContainerHigh),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = iconTint,
-            )
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = palette.iconTint,
+        )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = cs.onBackground,
+                style = sectionTitle,
             )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = body,
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurfaceVariant,
-                lineHeight = 22.sp,
-            )
-            if (footerLink != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                footerLink()
+            Spacer(modifier = Modifier.height(4.dp))
+            if (bodyAnnotated != null) {
+                bodyAnnotated()
+            } else {
+                Text(
+                    text = body.orEmpty(),
+                    style = bodyStyle,
+                )
             }
         }
     }
@@ -1053,7 +1140,8 @@ private fun PermissionsStep(
     val ctx = LocalContext.current
     val states by vm.states.collectAsState()
     val allRequiredGranted by vm.allRequiredGranted.collectAsState()
-    val cs = MaterialTheme.colorScheme
+    val p = rememberOnboardingConnectPalette()
+    OnboardingFullBleedSystemBarsEffect()
     val required = TymePermission.requiredPermissions
     val grantedRequiredCount = remember(states) {
         required.count { states[it] == true }
@@ -1062,13 +1150,13 @@ private fun PermissionsStep(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(cs.background)
+            .background(p.pageBackground)
             .statusBarsPadding(),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(horizontal = 24.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             FilledIconButton(
@@ -1076,8 +1164,8 @@ private fun PermissionsStep(
                 modifier = Modifier.size(40.dp),
                 shape = CircleShape,
                 colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = cs.surfaceContainerHigh,
-                    contentColor = cs.onSurface,
+                    containerColor = p.backButtonBackground,
+                    contentColor = p.backButtonContent,
                 ),
             ) {
                 Icon(
@@ -1092,28 +1180,30 @@ private fun PermissionsStep(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = 24.dp),
         ) {
             Text(
                 text = "Almost there",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = cs.primary,
+                color = p.body,
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = "Grant access",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = cs.onBackground,
+                color = p.title,
+                lineHeight = 32.sp,
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = "Allow what Tyme Boxed needs to block apps and keep sessions running. " +
                     "You can change these anytime in Settings.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurfaceVariant,
+                color = p.body,
                 lineHeight = 22.sp,
+                fontSize = 15.sp,
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
@@ -1125,11 +1215,7 @@ private fun PermissionsStep(
                 },
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.SemiBold,
-                color = if (allRequiredGranted) {
-                    Color(0xFF2E7D32)
-                } else {
-                    cs.onSurfaceVariant
-                },
+                color = if (allRequiredGranted) p.successGreen else p.body,
             )
             Spacer(modifier = Modifier.height(18.dp))
 
@@ -1140,7 +1226,13 @@ private fun PermissionsStep(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                SettingsCard(title = "Required") {
+                Text(
+                    text = "Required",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = p.cardSectionLabel,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
+                SettingsCard(title = null) {
                     TymePermission.requiredPermissions.forEachIndexed { idx, perm ->
                         val nfcUnavailable = perm == TymePermission.NFC && !vm.isNfcAvailable
                         PermissionRow(
@@ -1162,23 +1254,29 @@ private fun PermissionsStep(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 24.dp)
                 .padding(top = 4.dp, bottom = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (!allRequiredGranted) {
                 Text(
                     text = "Tap Grant beside each required permission. You may be sent to " +
                         "Android settings — use the back gesture or button to return here when done.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = cs.onSurfaceVariant,
+                    color = p.body,
                     lineHeight = 18.sp,
-                    modifier = Modifier.padding(bottom = 12.dp),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
                 )
             }
             ActionButton(
                 title = if (allRequiredGranted) "Continue" else "Grant all required above",
                 onClick = onDone,
                 enabled = allRequiredGranted,
+                backgroundColor = p.ctaBackground,
+                contentColor = p.ctaContent,
             )
         }
     }
