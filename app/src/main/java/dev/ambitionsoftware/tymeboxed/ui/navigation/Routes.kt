@@ -22,4 +22,8 @@ object Routes {
     /** Full-screen domain list + add; shares [ProfileEditViewModel] with [PROFILE_EDIT]. */
     const val PROFILE_EDIT_SELECT_DOMAINS = "profile_edit/{profileId}/select_domains"
     fun profileEditSelectDomains(profileId: String) = "profile_edit/$profileId/select_domains"
+
+    /** Weekly schedule editor; shares [ProfileEditViewModel] with [PROFILE_EDIT]. */
+    const val PROFILE_EDIT_SCHEDULE = "profile_edit/{profileId}/schedule"
+    fun profileEditSchedule(profileId: String) = "profile_edit/$profileId/schedule"
 }

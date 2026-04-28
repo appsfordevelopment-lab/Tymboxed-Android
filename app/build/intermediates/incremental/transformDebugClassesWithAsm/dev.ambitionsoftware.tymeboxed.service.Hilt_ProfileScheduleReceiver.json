@@ -1,0 +1,1 @@
+{"className":"dev.ambitionsoftware.tymeboxed.service.Hilt_ProfileScheduleReceiver","classAnnotations":["dagger.hilt.android.internal.OnReceiveBytecodeInjectionMarker"],"interfaces":[],"superClasses":["android.content.BroadcastReceiver","java.lang.Object"]}

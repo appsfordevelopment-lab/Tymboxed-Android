@@ -5,6 +5,7 @@ import dagger.internal.Factory;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import dev.ambitionsoftware.tymeboxed.data.db.dao.ProfileDao;
+import dev.ambitionsoftware.tymeboxed.service.ProfileScheduleAlarmScheduler;
 import javax.annotation.processing.Generated;
 import javax.inject.Provider;
 
@@ -27,24 +28,29 @@ public final class ProfileRepository_Factory implements Factory<ProfileRepositor
 
   private final Provider<SessionRepository> sessionRepositoryProvider;
 
+  private final Provider<ProfileScheduleAlarmScheduler> scheduleAlarmSchedulerProvider;
+
   public ProfileRepository_Factory(Provider<ProfileDao> profileDaoProvider,
-      Provider<SessionRepository> sessionRepositoryProvider) {
+      Provider<SessionRepository> sessionRepositoryProvider,
+      Provider<ProfileScheduleAlarmScheduler> scheduleAlarmSchedulerProvider) {
     this.profileDaoProvider = profileDaoProvider;
     this.sessionRepositoryProvider = sessionRepositoryProvider;
+    this.scheduleAlarmSchedulerProvider = scheduleAlarmSchedulerProvider;
   }
 
   @Override
   public ProfileRepository get() {
-    return newInstance(profileDaoProvider.get(), sessionRepositoryProvider.get());
+    return newInstance(profileDaoProvider.get(), sessionRepositoryProvider.get(), scheduleAlarmSchedulerProvider.get());
   }
 
   public static ProfileRepository_Factory create(Provider<ProfileDao> profileDaoProvider,
-      Provider<SessionRepository> sessionRepositoryProvider) {
-    return new ProfileRepository_Factory(profileDaoProvider, sessionRepositoryProvider);
+      Provider<SessionRepository> sessionRepositoryProvider,
+      Provider<ProfileScheduleAlarmScheduler> scheduleAlarmSchedulerProvider) {
+    return new ProfileRepository_Factory(profileDaoProvider, sessionRepositoryProvider, scheduleAlarmSchedulerProvider);
   }
 
   public static ProfileRepository newInstance(ProfileDao profileDao,
-      SessionRepository sessionRepository) {
-    return new ProfileRepository(profileDao, sessionRepository);
+      SessionRepository sessionRepository, ProfileScheduleAlarmScheduler scheduleAlarmScheduler) {
+    return new ProfileRepository(profileDao, sessionRepository, scheduleAlarmScheduler);
   }
 }

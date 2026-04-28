@@ -12,6 +12,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.ambitionsoftware.tymeboxed.domain.model.BlockingStrategyId
 import dev.ambitionsoftware.tymeboxed.domain.model.Profile
+import dev.ambitionsoftware.tymeboxed.domain.model.ProfileSchedule
 import dev.ambitionsoftware.tymeboxed.data.repository.ProfileRepository
 import dev.ambitionsoftware.tymeboxed.data.repository.SessionRepository
 import java.util.UUID
@@ -46,6 +47,7 @@ data class ProfileEditUiState(
     val isAllowMode: Boolean = false,
     val isAllowModeDomains: Boolean = false,
     val domains: List<String> = emptyList(),
+    val schedule: ProfileSchedule = ProfileSchedule.inactive(),
     val blockedPackages: Set<String> = emptySet(),
     val installedApps: List<InstalledApp> = emptyList(),
     val isSaving: Boolean = false,
@@ -113,6 +115,7 @@ class ProfileEditViewModel @Inject constructor(
                     isAllowMode = profile.isAllowMode,
                     isAllowModeDomains = profile.isAllowModeDomains,
                     domains = profile.domains,
+                    schedule = profile.schedule ?: ProfileSchedule.inactive(),
                     blockedPackages = profile.blockedPackages.toSet(),
                 )
             }
@@ -241,6 +244,15 @@ class ProfileEditViewModel @Inject constructor(
         _state.update { s -> s.copy(domains = s.domains - domain) }
     }
 
+    fun updateSchedule(schedule: ProfileSchedule) {
+        val normalized = if (schedule.isActive) {
+            schedule.copy(updatedAt = System.currentTimeMillis())
+        } else {
+            ProfileSchedule.inactive()
+        }
+        _state.update { it.copy(schedule = normalized) }
+    }
+
     fun save() {
         val current = _state.value
         if (current.name.isBlank()) {
@@ -274,6 +286,7 @@ class ProfileEditViewModel @Inject constructor(
                     isAllowMode = current.isAllowMode,
                     isAllowModeDomains = current.isAllowModeDomains,
                     domains = current.domains,
+                    schedule = current.schedule.takeIf { it.isActive },
                     blockedPackages = current.blockedPackages.toList(),
                 )
                 profileRepository.save(profile)
@@ -347,6 +360,7 @@ class ProfileEditViewModel @Inject constructor(
                     isAllowMode = current.isAllowMode,
                     isAllowModeDomains = current.isAllowModeDomains,
                     domains = current.domains,
+                    schedule = current.schedule.takeIf { it.isActive },
                     blockedPackages = current.blockedPackages.toList(),
                 )
                 profileRepository.save(copy)

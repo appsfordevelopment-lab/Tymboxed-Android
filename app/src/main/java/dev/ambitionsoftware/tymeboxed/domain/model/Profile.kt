@@ -34,6 +34,8 @@ data class Profile(
     val order: Int = 0,
     val accentColorHex: String? = null,
 
+    val schedule: ProfileSchedule? = null,
+
     val blockedPackages: List<String> = emptyList(),
 ) {
     companion object {
@@ -82,6 +84,7 @@ fun ProfileEntity.toDomain(blockedPackages: List<String>): Profile = Profile(
     domains = domains?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList(),
     order = order,
     accentColorHex = accentColorHex,
+    schedule = scheduleJson.decodeProfileSchedule(),
     blockedPackages = blockedPackages,
 )
 
@@ -107,4 +110,5 @@ fun Profile.toEntity(): ProfileEntity = ProfileEntity(
     domains = domains.takeIf { it.isNotEmpty() }?.joinToString(","),
     order = order,
     accentColorHex = accentColorHex,
+    scheduleJson = schedule?.toJson(),
 )

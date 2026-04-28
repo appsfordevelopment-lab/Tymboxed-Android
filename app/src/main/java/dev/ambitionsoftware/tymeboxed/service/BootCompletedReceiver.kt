@@ -10,6 +10,7 @@ import dev.ambitionsoftware.tymeboxed.data.db.TymeBoxedDatabase
 import dev.ambitionsoftware.tymeboxed.domain.model.normalizedForBreaks
 import dev.ambitionsoftware.tymeboxed.domain.model.toDomain
 import javax.inject.Inject
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,6 +32,9 @@ class BootCompletedReceiver : BroadcastReceiver() {
     @Inject
     lateinit var database: TymeBoxedDatabase
 
+    @Inject
+    lateinit var scheduleAlarmScheduler: ProfileScheduleAlarmScheduler
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -49,46 +53,49 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 val activeSession = database.sessionDao().findActive()
                 if (activeSession == null) {
                     Log.i(TAG, "No active session to restore.")
-                    pendingResult.finish()
-                    return@launch
-                }
-
-                // Load the profile for this session
-                val profileWithApps = database.profileDao().getByIdWithApps(activeSession.profileId)
-                if (profileWithApps == null) {
-                    Log.w(TAG, "Active session found but profile not found. Ending stale session.")
-                    database.sessionDao().endAllActive(System.currentTimeMillis())
-                    pendingResult.finish()
-                    return@launch
-                }
-
-                val profile = profileWithApps.toDomain().normalizedForBreaks()
-                val session = activeSession.toDomain()
-                val blockedPkgs = profile.blockedPackages.toSet()
-
-                BlockingStateRestorer.apply(
-                    profile = profile,
-                    session = session,
-                    blockedPackages = blockedPkgs,
-                )
-
-                // Restart the foreground service
-                val serviceIntent = SessionBlockerService.startIntent(
-                    context.applicationContext,
-                    profile.name,
-                    activeSession.startTime,
-                )
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.applicationContext.startForegroundService(serviceIntent)
                 } else {
-                    context.applicationContext.startService(serviceIntent)
-                }
+                    // Load the profile for this session
+                    val profileWithApps = database.profileDao().getByIdWithApps(activeSession.profileId)
+                    if (profileWithApps == null) {
+                        Log.w(TAG, "Active session found but profile not found. Ending stale session.")
+                        database.sessionDao().endAllActive(System.currentTimeMillis())
+                    } else {
+                        val profile = profileWithApps.toDomain().normalizedForBreaks()
+                        val session = activeSession.toDomain()
+                        val blockedPkgs = profile.blockedPackages.toSet()
 
-                Log.i(TAG, "Restored active session for profile '${profile.name}' " +
-                    "with ${blockedPkgs.size} blocked packages.")
+                        BlockingStateRestorer.apply(
+                            profile = profile,
+                            session = session,
+                            blockedPackages = blockedPkgs,
+                        )
+
+                        // Restart the foreground service
+                        val serviceIntent = SessionBlockerService.startIntent(
+                            context.applicationContext,
+                            profile.name,
+                            activeSession.startTime,
+                        )
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.applicationContext.startForegroundService(serviceIntent)
+                        } else {
+                            context.applicationContext.startService(serviceIntent)
+                        }
+
+                        Log.i(TAG, "Restored active session for profile '${profile.name}' " +
+                            "with ${blockedPkgs.size} blocked packages.")
+                    }
+                }
             } catch (e: Throwable) {
                 Log.e(TAG, "Failed to restore session on boot: ${e.message}", e)
             } finally {
+                runBlocking {
+                    try {
+                        scheduleAlarmScheduler.rescheduleAll()
+                    } catch (e: Throwable) {
+                        Log.w(TAG, "Schedule alarm reschedule after boot: ${e.message}")
+                    }
+                }
                 pendingResult.finish()
             }
         }

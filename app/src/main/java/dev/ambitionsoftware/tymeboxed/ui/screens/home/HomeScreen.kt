@@ -137,11 +137,9 @@ import dev.ambitionsoftware.tymeboxed.service.ActiveBlockingState
 import dev.ambitionsoftware.tymeboxed.service.AppSessionController
 import dev.ambitionsoftware.tymeboxed.service.BlockingStateRestorer
 import dev.ambitionsoftware.tymeboxed.service.SessionBlockerService
-import dev.ambitionsoftware.tymeboxed.service.SessionReminderScheduler
 import dev.ambitionsoftware.tymeboxed.ui.components.SettingsCard
 import dev.ambitionsoftware.tymeboxed.ui.screens.insights.ProfileInsightsScreen
 import dev.ambitionsoftware.tymeboxed.ui.theme.LocalAccentColor
-import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -159,7 +157,6 @@ class HomeViewModel @Inject constructor(
     private val appPreferences: AppPreferences,
     private val authRepository: AuthRepository,
     private val appSessionController: AppSessionController,
-    private val sessionReminderScheduler: SessionReminderScheduler,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
     val profiles: StateFlow<List<Profile>> = profileRepository.observeAll().stateIn(
@@ -267,47 +264,7 @@ class HomeViewModel @Inject constructor(
      */
     fun startSession(profileId: String, selectedTimerMinutes: Int? = null) {
         viewModelScope.launch {
-            sessionReminderScheduler.cancelAll()
-            var profile = profileRepository.findById(profileId) ?: return@launch
-
-            if (selectedTimerMinutes != null &&
-                profile.strategyId in listOf(BlockingStrategyId.FOCUS_TIMER, BlockingStrategyId.FOCUS_TIMER_BREAK)
-            ) {
-                val updated = profile.copy(
-                    strategyData = selectedTimerMinutes.coerceIn(1, 24 * 60).toString(),
-                    updatedAt = System.currentTimeMillis(),
-                )
-                profileRepository.save(updated)
-                profile = updated
-            }
-
-            // End any lingering session first
-            sessionRepository.resetActive()
-
-            val now = System.currentTimeMillis()
-            val session = Session(
-                id = UUID.randomUUID().toString(),
-                profileId = profileId,
-                startTime = now,
-            )
-            sessionRepository.insert(session)
-
-            BlockingStateRestorer.apply(
-                profile = profile,
-                session = session,
-                blockedPackages = profile.blockedPackages.toSet(),
-            )
-
-            val serviceIntent = SessionBlockerService.startIntent(
-                appContext,
-                profile.name,
-                session.startTime,
-            )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                appContext.startForegroundService(serviceIntent)
-            } else {
-                appContext.startService(serviceIntent)
-            }
+            appSessionController.startFocusSession(profileId, selectedTimerMinutes)
         }
     }
 
@@ -2331,7 +2288,7 @@ private fun ProfileCard(
                     color = cs.outlineVariant,
                 )
                 Text(
-                    text = "No Schedule Set",
+                    text = profile.schedule?.summaryText() ?: "No Schedule Set",
                     style = MaterialTheme.typography.bodySmall,
                     color = cs.onSurfaceVariant,
                     maxLines = 1,

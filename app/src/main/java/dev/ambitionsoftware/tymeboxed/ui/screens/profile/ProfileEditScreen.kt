@@ -70,6 +70,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import dev.ambitionsoftware.tymeboxed.domain.model.ProfileSchedule
 import dev.ambitionsoftware.tymeboxed.domain.model.StrategyInfo
 import dev.ambitionsoftware.tymeboxed.domain.model.availableStrategies
 import dev.ambitionsoftware.tymeboxed.ui.components.ActionButton
@@ -86,6 +87,7 @@ fun ProfileEditScreen(
     onNavigateToProfile: (String) -> Unit = {},
     onOpenBlockedApps: () -> Unit = {},
     onOpenBlockedDomains: () -> Unit = {},
+    onOpenSchedule: () -> Unit = {},
 ) {
     val vm: ProfileEditViewModel = hiltViewModel()
     val state by vm.state.collectAsState()
@@ -218,8 +220,12 @@ fun ProfileEditScreen(
                     onOpenDomainPicker = onOpenBlockedDomains,
                 )
 
-                // 4. Schedule (UI parity with iOS; scheduling logic TBD)
-                ScheduleSection()
+                // 4. Schedule (iOS BlockedProfileScheduleSelector + SchedulePicker)
+                ScheduleSection(
+                    schedule = state.schedule,
+                    disabled = state.isActiveSessionForThisProfile,
+                    onOpenSchedule = onOpenSchedule,
+                )
 
                 // 5. Blocking strategy
                 StrategySection(
@@ -842,14 +848,19 @@ private fun DomainSection(
     }
 }
 
-// ─── Schedule (UI parity with iOS; scheduling logic not yet on Android) ────
+// ─── Schedule (iOS BlockedProfileScheduleSelector) ───────────────────────────
 
 @Composable
-private fun ScheduleSection() {
+private fun ScheduleSection(
+    schedule: ProfileSchedule,
+    disabled: Boolean,
+    onOpenSchedule: () -> Unit,
+) {
     SettingsCard(title = "Schedule", elevation = 0.dp) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clickable(enabled = !disabled, onClick = onOpenSchedule)
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -866,9 +877,17 @@ private fun ScheduleSection() {
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        if (disabled) {
+            Text(
+                text = "End the focus session to edit the schedule.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
         SettingsCardDivider()
         Text(
-            text = "No Schedule Set",
+            text = schedule.summaryText(),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),

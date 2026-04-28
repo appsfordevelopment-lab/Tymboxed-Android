@@ -50,6 +50,7 @@ import dev.ambitionsoftware.tymeboxed.di.PermissionsEntryPoint;
 import dev.ambitionsoftware.tymeboxed.di.ServiceBridgeEntryPoint;
 import dev.ambitionsoftware.tymeboxed.permissions.PermissionsViewModel_HiltModules;
 import dev.ambitionsoftware.tymeboxed.service.BootCompletedReceiver_GeneratedInjector;
+import dev.ambitionsoftware.tymeboxed.service.ProfileScheduleReceiver_GeneratedInjector;
 import dev.ambitionsoftware.tymeboxed.ui.screens.home.HomeViewModel_HiltModules;
 import dev.ambitionsoftware.tymeboxed.ui.screens.inapp.InAppBlockingViewModel_HiltModules;
 import dev.ambitionsoftware.tymeboxed.ui.screens.insights.ProfileInsightsViewModel_HiltModules;
@@ -155,7 +156,8 @@ public final class TymeBoxedApplication_HiltComponents {
       DatabaseEntryPoint,
       PermissionsEntryPoint,
       ServiceBridgeEntryPoint,
-      BootCompletedReceiver_GeneratedInjector {
+      BootCompletedReceiver_GeneratedInjector,
+      ProfileScheduleReceiver_GeneratedInjector {
   }
 
   @Subcomponent

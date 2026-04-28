@@ -22,7 +22,7 @@ import dev.ambitionsoftware.tymeboxed.data.db.entities.TagEntity
         SessionEntity::class,
         TagEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

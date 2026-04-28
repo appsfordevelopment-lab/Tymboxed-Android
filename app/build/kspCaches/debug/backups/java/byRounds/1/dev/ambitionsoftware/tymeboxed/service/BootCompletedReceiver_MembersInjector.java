@@ -24,22 +24,34 @@ import javax.inject.Provider;
 public final class BootCompletedReceiver_MembersInjector implements MembersInjector<BootCompletedReceiver> {
   private final Provider<TymeBoxedDatabase> databaseProvider;
 
-  public BootCompletedReceiver_MembersInjector(Provider<TymeBoxedDatabase> databaseProvider) {
+  private final Provider<ProfileScheduleAlarmScheduler> scheduleAlarmSchedulerProvider;
+
+  public BootCompletedReceiver_MembersInjector(Provider<TymeBoxedDatabase> databaseProvider,
+      Provider<ProfileScheduleAlarmScheduler> scheduleAlarmSchedulerProvider) {
     this.databaseProvider = databaseProvider;
+    this.scheduleAlarmSchedulerProvider = scheduleAlarmSchedulerProvider;
   }
 
   public static MembersInjector<BootCompletedReceiver> create(
-      Provider<TymeBoxedDatabase> databaseProvider) {
-    return new BootCompletedReceiver_MembersInjector(databaseProvider);
+      Provider<TymeBoxedDatabase> databaseProvider,
+      Provider<ProfileScheduleAlarmScheduler> scheduleAlarmSchedulerProvider) {
+    return new BootCompletedReceiver_MembersInjector(databaseProvider, scheduleAlarmSchedulerProvider);
   }
 
   @Override
   public void injectMembers(BootCompletedReceiver instance) {
     injectDatabase(instance, databaseProvider.get());
+    injectScheduleAlarmScheduler(instance, scheduleAlarmSchedulerProvider.get());
   }
 
   @InjectedFieldSignature("dev.ambitionsoftware.tymeboxed.service.BootCompletedReceiver.database")
   public static void injectDatabase(BootCompletedReceiver instance, TymeBoxedDatabase database) {
     instance.database = database;
+  }
+
+  @InjectedFieldSignature("dev.ambitionsoftware.tymeboxed.service.BootCompletedReceiver.scheduleAlarmScheduler")
+  public static void injectScheduleAlarmScheduler(BootCompletedReceiver instance,
+      ProfileScheduleAlarmScheduler scheduleAlarmScheduler) {
+    instance.scheduleAlarmScheduler = scheduleAlarmScheduler;
   }
 }

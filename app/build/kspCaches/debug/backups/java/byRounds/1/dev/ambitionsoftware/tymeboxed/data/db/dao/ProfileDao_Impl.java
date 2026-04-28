@@ -60,7 +60,7 @@ public final class ProfileDao_Impl implements ProfileDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "INSERT OR ABORT INTO `profiles` (`id`,`name`,`createdAt`,`updatedAt`,`strategyId`,`strategyData`,`enableStrictMode`,`enableLiveActivity`,`enableBreaks`,`breakTimeInMinutes`,`reminderTimeSeconds`,`customReminderMessage`,`physicalUnblockNfcTagId`,`isAllowMode`,`isAllowModeDomains`,`domains`,`order`,`accentColorHex`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        return "INSERT OR ABORT INTO `profiles` (`id`,`name`,`createdAt`,`updatedAt`,`strategyId`,`strategyData`,`enableStrictMode`,`enableLiveActivity`,`enableBreaks`,`breakTimeInMinutes`,`reminderTimeSeconds`,`customReminderMessage`,`physicalUnblockNfcTagId`,`isAllowMode`,`isAllowModeDomains`,`domains`,`order`,`accentColorHex`,`scheduleJson`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
       }
 
       @Override
@@ -112,6 +112,11 @@ public final class ProfileDao_Impl implements ProfileDao {
           statement.bindNull(18);
         } else {
           statement.bindString(18, entity.getAccentColorHex());
+        }
+        if (entity.getScheduleJson() == null) {
+          statement.bindNull(19);
+        } else {
+          statement.bindString(19, entity.getScheduleJson());
         }
       }
     };
@@ -147,7 +152,7 @@ public final class ProfileDao_Impl implements ProfileDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "UPDATE OR ABORT `profiles` SET `id` = ?,`name` = ?,`createdAt` = ?,`updatedAt` = ?,`strategyId` = ?,`strategyData` = ?,`enableStrictMode` = ?,`enableLiveActivity` = ?,`enableBreaks` = ?,`breakTimeInMinutes` = ?,`reminderTimeSeconds` = ?,`customReminderMessage` = ?,`physicalUnblockNfcTagId` = ?,`isAllowMode` = ?,`isAllowModeDomains` = ?,`domains` = ?,`order` = ?,`accentColorHex` = ? WHERE `id` = ?";
+        return "UPDATE OR ABORT `profiles` SET `id` = ?,`name` = ?,`createdAt` = ?,`updatedAt` = ?,`strategyId` = ?,`strategyData` = ?,`enableStrictMode` = ?,`enableLiveActivity` = ?,`enableBreaks` = ?,`breakTimeInMinutes` = ?,`reminderTimeSeconds` = ?,`customReminderMessage` = ?,`physicalUnblockNfcTagId` = ?,`isAllowMode` = ?,`isAllowModeDomains` = ?,`domains` = ?,`order` = ?,`accentColorHex` = ?,`scheduleJson` = ? WHERE `id` = ?";
       }
 
       @Override
@@ -200,7 +205,12 @@ public final class ProfileDao_Impl implements ProfileDao {
         } else {
           statement.bindString(18, entity.getAccentColorHex());
         }
-        statement.bindString(19, entity.getId());
+        if (entity.getScheduleJson() == null) {
+          statement.bindNull(19);
+        } else {
+          statement.bindString(19, entity.getScheduleJson());
+        }
+        statement.bindString(20, entity.getId());
       }
     };
     this.__preparedStmtOfDeleteAll = new SharedSQLiteStatement(__db) {
@@ -377,6 +387,7 @@ public final class ProfileDao_Impl implements ProfileDao {
             final int _cursorIndexOfDomains = CursorUtil.getColumnIndexOrThrow(_cursor, "domains");
             final int _cursorIndexOfOrder = CursorUtil.getColumnIndexOrThrow(_cursor, "order");
             final int _cursorIndexOfAccentColorHex = CursorUtil.getColumnIndexOrThrow(_cursor, "accentColorHex");
+            final int _cursorIndexOfScheduleJson = CursorUtil.getColumnIndexOrThrow(_cursor, "scheduleJson");
             final ArrayMap<String, ArrayList<BlockedAppEntity>> _collectionBlockedApps = new ArrayMap<String, ArrayList<BlockedAppEntity>>();
             while (_cursor.moveToNext()) {
               final String _tmpKey;
@@ -461,7 +472,13 @@ public final class ProfileDao_Impl implements ProfileDao {
               } else {
                 _tmpAccentColorHex = _cursor.getString(_cursorIndexOfAccentColorHex);
               }
-              _tmpProfile = new ProfileEntity(_tmpId,_tmpName,_tmpCreatedAt,_tmpUpdatedAt,_tmpStrategyId,_tmpStrategyData,_tmpEnableStrictMode,_tmpEnableLiveActivity,_tmpEnableBreaks,_tmpBreakTimeInMinutes,_tmpReminderTimeSeconds,_tmpCustomReminderMessage,_tmpPhysicalUnblockNfcTagId,_tmpIsAllowMode,_tmpIsAllowModeDomains,_tmpDomains,_tmpOrder,_tmpAccentColorHex);
+              final String _tmpScheduleJson;
+              if (_cursor.isNull(_cursorIndexOfScheduleJson)) {
+                _tmpScheduleJson = null;
+              } else {
+                _tmpScheduleJson = _cursor.getString(_cursorIndexOfScheduleJson);
+              }
+              _tmpProfile = new ProfileEntity(_tmpId,_tmpName,_tmpCreatedAt,_tmpUpdatedAt,_tmpStrategyId,_tmpStrategyData,_tmpEnableStrictMode,_tmpEnableLiveActivity,_tmpEnableBreaks,_tmpBreakTimeInMinutes,_tmpReminderTimeSeconds,_tmpCustomReminderMessage,_tmpPhysicalUnblockNfcTagId,_tmpIsAllowMode,_tmpIsAllowModeDomains,_tmpDomains,_tmpOrder,_tmpAccentColorHex,_tmpScheduleJson);
               final ArrayList<BlockedAppEntity> _tmpBlockedAppsCollection;
               final String _tmpKey_1;
               _tmpKey_1 = _cursor.getString(_cursorIndexOfId);
@@ -484,6 +501,150 @@ public final class ProfileDao_Impl implements ProfileDao {
         _statement.release();
       }
     });
+  }
+
+  @Override
+  public Object getAllWithAppsSnapshot(
+      final Continuation<? super List<ProfileWithApps>> $completion) {
+    final String _sql = "SELECT * FROM profiles ORDER BY `order` ASC, createdAt DESC";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, true, _cancellationSignal, new Callable<List<ProfileWithApps>>() {
+      @Override
+      @NonNull
+      public List<ProfileWithApps> call() throws Exception {
+        __db.beginTransaction();
+        try {
+          final Cursor _cursor = DBUtil.query(__db, _statement, true, null);
+          try {
+            final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+            final int _cursorIndexOfName = CursorUtil.getColumnIndexOrThrow(_cursor, "name");
+            final int _cursorIndexOfCreatedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "createdAt");
+            final int _cursorIndexOfUpdatedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "updatedAt");
+            final int _cursorIndexOfStrategyId = CursorUtil.getColumnIndexOrThrow(_cursor, "strategyId");
+            final int _cursorIndexOfStrategyData = CursorUtil.getColumnIndexOrThrow(_cursor, "strategyData");
+            final int _cursorIndexOfEnableStrictMode = CursorUtil.getColumnIndexOrThrow(_cursor, "enableStrictMode");
+            final int _cursorIndexOfEnableLiveActivity = CursorUtil.getColumnIndexOrThrow(_cursor, "enableLiveActivity");
+            final int _cursorIndexOfEnableBreaks = CursorUtil.getColumnIndexOrThrow(_cursor, "enableBreaks");
+            final int _cursorIndexOfBreakTimeInMinutes = CursorUtil.getColumnIndexOrThrow(_cursor, "breakTimeInMinutes");
+            final int _cursorIndexOfReminderTimeSeconds = CursorUtil.getColumnIndexOrThrow(_cursor, "reminderTimeSeconds");
+            final int _cursorIndexOfCustomReminderMessage = CursorUtil.getColumnIndexOrThrow(_cursor, "customReminderMessage");
+            final int _cursorIndexOfPhysicalUnblockNfcTagId = CursorUtil.getColumnIndexOrThrow(_cursor, "physicalUnblockNfcTagId");
+            final int _cursorIndexOfIsAllowMode = CursorUtil.getColumnIndexOrThrow(_cursor, "isAllowMode");
+            final int _cursorIndexOfIsAllowModeDomains = CursorUtil.getColumnIndexOrThrow(_cursor, "isAllowModeDomains");
+            final int _cursorIndexOfDomains = CursorUtil.getColumnIndexOrThrow(_cursor, "domains");
+            final int _cursorIndexOfOrder = CursorUtil.getColumnIndexOrThrow(_cursor, "order");
+            final int _cursorIndexOfAccentColorHex = CursorUtil.getColumnIndexOrThrow(_cursor, "accentColorHex");
+            final int _cursorIndexOfScheduleJson = CursorUtil.getColumnIndexOrThrow(_cursor, "scheduleJson");
+            final ArrayMap<String, ArrayList<BlockedAppEntity>> _collectionBlockedApps = new ArrayMap<String, ArrayList<BlockedAppEntity>>();
+            while (_cursor.moveToNext()) {
+              final String _tmpKey;
+              _tmpKey = _cursor.getString(_cursorIndexOfId);
+              if (!_collectionBlockedApps.containsKey(_tmpKey)) {
+                _collectionBlockedApps.put(_tmpKey, new ArrayList<BlockedAppEntity>());
+              }
+            }
+            _cursor.moveToPosition(-1);
+            __fetchRelationshipblockedAppsAsdevAmbitionsoftwareTymeboxedDataDbEntitiesBlockedAppEntity(_collectionBlockedApps);
+            final List<ProfileWithApps> _result = new ArrayList<ProfileWithApps>(_cursor.getCount());
+            while (_cursor.moveToNext()) {
+              final ProfileWithApps _item;
+              final ProfileEntity _tmpProfile;
+              final String _tmpId;
+              _tmpId = _cursor.getString(_cursorIndexOfId);
+              final String _tmpName;
+              _tmpName = _cursor.getString(_cursorIndexOfName);
+              final long _tmpCreatedAt;
+              _tmpCreatedAt = _cursor.getLong(_cursorIndexOfCreatedAt);
+              final long _tmpUpdatedAt;
+              _tmpUpdatedAt = _cursor.getLong(_cursorIndexOfUpdatedAt);
+              final String _tmpStrategyId;
+              _tmpStrategyId = _cursor.getString(_cursorIndexOfStrategyId);
+              final String _tmpStrategyData;
+              if (_cursor.isNull(_cursorIndexOfStrategyData)) {
+                _tmpStrategyData = null;
+              } else {
+                _tmpStrategyData = _cursor.getString(_cursorIndexOfStrategyData);
+              }
+              final boolean _tmpEnableStrictMode;
+              final int _tmp;
+              _tmp = _cursor.getInt(_cursorIndexOfEnableStrictMode);
+              _tmpEnableStrictMode = _tmp != 0;
+              final boolean _tmpEnableLiveActivity;
+              final int _tmp_1;
+              _tmp_1 = _cursor.getInt(_cursorIndexOfEnableLiveActivity);
+              _tmpEnableLiveActivity = _tmp_1 != 0;
+              final boolean _tmpEnableBreaks;
+              final int _tmp_2;
+              _tmp_2 = _cursor.getInt(_cursorIndexOfEnableBreaks);
+              _tmpEnableBreaks = _tmp_2 != 0;
+              final int _tmpBreakTimeInMinutes;
+              _tmpBreakTimeInMinutes = _cursor.getInt(_cursorIndexOfBreakTimeInMinutes);
+              final Integer _tmpReminderTimeSeconds;
+              if (_cursor.isNull(_cursorIndexOfReminderTimeSeconds)) {
+                _tmpReminderTimeSeconds = null;
+              } else {
+                _tmpReminderTimeSeconds = _cursor.getInt(_cursorIndexOfReminderTimeSeconds);
+              }
+              final String _tmpCustomReminderMessage;
+              if (_cursor.isNull(_cursorIndexOfCustomReminderMessage)) {
+                _tmpCustomReminderMessage = null;
+              } else {
+                _tmpCustomReminderMessage = _cursor.getString(_cursorIndexOfCustomReminderMessage);
+              }
+              final String _tmpPhysicalUnblockNfcTagId;
+              if (_cursor.isNull(_cursorIndexOfPhysicalUnblockNfcTagId)) {
+                _tmpPhysicalUnblockNfcTagId = null;
+              } else {
+                _tmpPhysicalUnblockNfcTagId = _cursor.getString(_cursorIndexOfPhysicalUnblockNfcTagId);
+              }
+              final boolean _tmpIsAllowMode;
+              final int _tmp_3;
+              _tmp_3 = _cursor.getInt(_cursorIndexOfIsAllowMode);
+              _tmpIsAllowMode = _tmp_3 != 0;
+              final boolean _tmpIsAllowModeDomains;
+              final int _tmp_4;
+              _tmp_4 = _cursor.getInt(_cursorIndexOfIsAllowModeDomains);
+              _tmpIsAllowModeDomains = _tmp_4 != 0;
+              final String _tmpDomains;
+              if (_cursor.isNull(_cursorIndexOfDomains)) {
+                _tmpDomains = null;
+              } else {
+                _tmpDomains = _cursor.getString(_cursorIndexOfDomains);
+              }
+              final int _tmpOrder;
+              _tmpOrder = _cursor.getInt(_cursorIndexOfOrder);
+              final String _tmpAccentColorHex;
+              if (_cursor.isNull(_cursorIndexOfAccentColorHex)) {
+                _tmpAccentColorHex = null;
+              } else {
+                _tmpAccentColorHex = _cursor.getString(_cursorIndexOfAccentColorHex);
+              }
+              final String _tmpScheduleJson;
+              if (_cursor.isNull(_cursorIndexOfScheduleJson)) {
+                _tmpScheduleJson = null;
+              } else {
+                _tmpScheduleJson = _cursor.getString(_cursorIndexOfScheduleJson);
+              }
+              _tmpProfile = new ProfileEntity(_tmpId,_tmpName,_tmpCreatedAt,_tmpUpdatedAt,_tmpStrategyId,_tmpStrategyData,_tmpEnableStrictMode,_tmpEnableLiveActivity,_tmpEnableBreaks,_tmpBreakTimeInMinutes,_tmpReminderTimeSeconds,_tmpCustomReminderMessage,_tmpPhysicalUnblockNfcTagId,_tmpIsAllowMode,_tmpIsAllowModeDomains,_tmpDomains,_tmpOrder,_tmpAccentColorHex,_tmpScheduleJson);
+              final ArrayList<BlockedAppEntity> _tmpBlockedAppsCollection;
+              final String _tmpKey_1;
+              _tmpKey_1 = _cursor.getString(_cursorIndexOfId);
+              _tmpBlockedAppsCollection = _collectionBlockedApps.get(_tmpKey_1);
+              _item = new ProfileWithApps(_tmpProfile,_tmpBlockedAppsCollection);
+              _result.add(_item);
+            }
+            __db.setTransactionSuccessful();
+            return _result;
+          } finally {
+            _cursor.close();
+            _statement.release();
+          }
+        } finally {
+          __db.endTransaction();
+        }
+      }
+    }, $completion);
   }
 
   @Override
@@ -519,6 +680,7 @@ public final class ProfileDao_Impl implements ProfileDao {
             final int _cursorIndexOfDomains = CursorUtil.getColumnIndexOrThrow(_cursor, "domains");
             final int _cursorIndexOfOrder = CursorUtil.getColumnIndexOrThrow(_cursor, "order");
             final int _cursorIndexOfAccentColorHex = CursorUtil.getColumnIndexOrThrow(_cursor, "accentColorHex");
+            final int _cursorIndexOfScheduleJson = CursorUtil.getColumnIndexOrThrow(_cursor, "scheduleJson");
             final ArrayMap<String, ArrayList<BlockedAppEntity>> _collectionBlockedApps = new ArrayMap<String, ArrayList<BlockedAppEntity>>();
             while (_cursor.moveToNext()) {
               final String _tmpKey;
@@ -602,7 +764,13 @@ public final class ProfileDao_Impl implements ProfileDao {
               } else {
                 _tmpAccentColorHex = _cursor.getString(_cursorIndexOfAccentColorHex);
               }
-              _tmpProfile = new ProfileEntity(_tmpId,_tmpName,_tmpCreatedAt,_tmpUpdatedAt,_tmpStrategyId,_tmpStrategyData,_tmpEnableStrictMode,_tmpEnableLiveActivity,_tmpEnableBreaks,_tmpBreakTimeInMinutes,_tmpReminderTimeSeconds,_tmpCustomReminderMessage,_tmpPhysicalUnblockNfcTagId,_tmpIsAllowMode,_tmpIsAllowModeDomains,_tmpDomains,_tmpOrder,_tmpAccentColorHex);
+              final String _tmpScheduleJson;
+              if (_cursor.isNull(_cursorIndexOfScheduleJson)) {
+                _tmpScheduleJson = null;
+              } else {
+                _tmpScheduleJson = _cursor.getString(_cursorIndexOfScheduleJson);
+              }
+              _tmpProfile = new ProfileEntity(_tmpId,_tmpName,_tmpCreatedAt,_tmpUpdatedAt,_tmpStrategyId,_tmpStrategyData,_tmpEnableStrictMode,_tmpEnableLiveActivity,_tmpEnableBreaks,_tmpBreakTimeInMinutes,_tmpReminderTimeSeconds,_tmpCustomReminderMessage,_tmpPhysicalUnblockNfcTagId,_tmpIsAllowMode,_tmpIsAllowModeDomains,_tmpDomains,_tmpOrder,_tmpAccentColorHex,_tmpScheduleJson);
               final ArrayList<BlockedAppEntity> _tmpBlockedAppsCollection;
               final String _tmpKey_1;
               _tmpKey_1 = _cursor.getString(_cursorIndexOfId);
@@ -662,6 +830,7 @@ public final class ProfileDao_Impl implements ProfileDao {
             final int _cursorIndexOfDomains = CursorUtil.getColumnIndexOrThrow(_cursor, "domains");
             final int _cursorIndexOfOrder = CursorUtil.getColumnIndexOrThrow(_cursor, "order");
             final int _cursorIndexOfAccentColorHex = CursorUtil.getColumnIndexOrThrow(_cursor, "accentColorHex");
+            final int _cursorIndexOfScheduleJson = CursorUtil.getColumnIndexOrThrow(_cursor, "scheduleJson");
             final ArrayMap<String, ArrayList<BlockedAppEntity>> _collectionBlockedApps = new ArrayMap<String, ArrayList<BlockedAppEntity>>();
             while (_cursor.moveToNext()) {
               final String _tmpKey;
@@ -745,7 +914,13 @@ public final class ProfileDao_Impl implements ProfileDao {
               } else {
                 _tmpAccentColorHex = _cursor.getString(_cursorIndexOfAccentColorHex);
               }
-              _tmpProfile = new ProfileEntity(_tmpId,_tmpName,_tmpCreatedAt,_tmpUpdatedAt,_tmpStrategyId,_tmpStrategyData,_tmpEnableStrictMode,_tmpEnableLiveActivity,_tmpEnableBreaks,_tmpBreakTimeInMinutes,_tmpReminderTimeSeconds,_tmpCustomReminderMessage,_tmpPhysicalUnblockNfcTagId,_tmpIsAllowMode,_tmpIsAllowModeDomains,_tmpDomains,_tmpOrder,_tmpAccentColorHex);
+              final String _tmpScheduleJson;
+              if (_cursor.isNull(_cursorIndexOfScheduleJson)) {
+                _tmpScheduleJson = null;
+              } else {
+                _tmpScheduleJson = _cursor.getString(_cursorIndexOfScheduleJson);
+              }
+              _tmpProfile = new ProfileEntity(_tmpId,_tmpName,_tmpCreatedAt,_tmpUpdatedAt,_tmpStrategyId,_tmpStrategyData,_tmpEnableStrictMode,_tmpEnableLiveActivity,_tmpEnableBreaks,_tmpBreakTimeInMinutes,_tmpReminderTimeSeconds,_tmpCustomReminderMessage,_tmpPhysicalUnblockNfcTagId,_tmpIsAllowMode,_tmpIsAllowModeDomains,_tmpDomains,_tmpOrder,_tmpAccentColorHex,_tmpScheduleJson);
               final ArrayList<BlockedAppEntity> _tmpBlockedAppsCollection;
               final String _tmpKey_1;
               _tmpKey_1 = _cursor.getString(_cursorIndexOfId);
@@ -798,6 +973,7 @@ public final class ProfileDao_Impl implements ProfileDao {
           final int _cursorIndexOfDomains = CursorUtil.getColumnIndexOrThrow(_cursor, "domains");
           final int _cursorIndexOfOrder = CursorUtil.getColumnIndexOrThrow(_cursor, "order");
           final int _cursorIndexOfAccentColorHex = CursorUtil.getColumnIndexOrThrow(_cursor, "accentColorHex");
+          final int _cursorIndexOfScheduleJson = CursorUtil.getColumnIndexOrThrow(_cursor, "scheduleJson");
           final ProfileEntity _result;
           if (_cursor.moveToFirst()) {
             final String _tmpId;
@@ -870,7 +1046,13 @@ public final class ProfileDao_Impl implements ProfileDao {
             } else {
               _tmpAccentColorHex = _cursor.getString(_cursorIndexOfAccentColorHex);
             }
-            _result = new ProfileEntity(_tmpId,_tmpName,_tmpCreatedAt,_tmpUpdatedAt,_tmpStrategyId,_tmpStrategyData,_tmpEnableStrictMode,_tmpEnableLiveActivity,_tmpEnableBreaks,_tmpBreakTimeInMinutes,_tmpReminderTimeSeconds,_tmpCustomReminderMessage,_tmpPhysicalUnblockNfcTagId,_tmpIsAllowMode,_tmpIsAllowModeDomains,_tmpDomains,_tmpOrder,_tmpAccentColorHex);
+            final String _tmpScheduleJson;
+            if (_cursor.isNull(_cursorIndexOfScheduleJson)) {
+              _tmpScheduleJson = null;
+            } else {
+              _tmpScheduleJson = _cursor.getString(_cursorIndexOfScheduleJson);
+            }
+            _result = new ProfileEntity(_tmpId,_tmpName,_tmpCreatedAt,_tmpUpdatedAt,_tmpStrategyId,_tmpStrategyData,_tmpEnableStrictMode,_tmpEnableLiveActivity,_tmpEnableBreaks,_tmpBreakTimeInMinutes,_tmpReminderTimeSeconds,_tmpCustomReminderMessage,_tmpPhysicalUnblockNfcTagId,_tmpIsAllowMode,_tmpIsAllowModeDomains,_tmpDomains,_tmpOrder,_tmpAccentColorHex,_tmpScheduleJson);
           } else {
             _result = null;
           }

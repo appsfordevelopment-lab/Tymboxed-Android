@@ -20,6 +20,10 @@ interface ProfileDao {
     fun observeAllWithApps(): Flow<List<ProfileWithApps>>
 
     @Transaction
+    @Query("SELECT * FROM profiles ORDER BY `order` ASC, createdAt DESC")
+    suspend fun getAllWithAppsSnapshot(): List<ProfileWithApps>
+
+    @Transaction
     @Query("SELECT * FROM profiles WHERE id = :id LIMIT 1")
     fun observeByIdWithApps(id: String): Flow<ProfileWithApps?>
 

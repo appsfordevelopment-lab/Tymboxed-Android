@@ -42,10 +42,10 @@ public final class TymeBoxedDatabase_Impl extends TymeBoxedDatabase {
   @Override
   @NonNull
   protected SupportSQLiteOpenHelper createOpenHelper(@NonNull final DatabaseConfiguration config) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(2) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(3) {
       @Override
       public void createAllTables(@NonNull final SupportSQLiteDatabase db) {
-        db.execSQL("CREATE TABLE IF NOT EXISTS `profiles` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `strategyId` TEXT NOT NULL, `strategyData` TEXT, `enableStrictMode` INTEGER NOT NULL, `enableLiveActivity` INTEGER NOT NULL, `enableBreaks` INTEGER NOT NULL, `breakTimeInMinutes` INTEGER NOT NULL, `reminderTimeSeconds` INTEGER, `customReminderMessage` TEXT, `physicalUnblockNfcTagId` TEXT, `isAllowMode` INTEGER NOT NULL, `isAllowModeDomains` INTEGER NOT NULL, `domains` TEXT, `order` INTEGER NOT NULL, `accentColorHex` TEXT, PRIMARY KEY(`id`))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `profiles` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `strategyId` TEXT NOT NULL, `strategyData` TEXT, `enableStrictMode` INTEGER NOT NULL, `enableLiveActivity` INTEGER NOT NULL, `enableBreaks` INTEGER NOT NULL, `breakTimeInMinutes` INTEGER NOT NULL, `reminderTimeSeconds` INTEGER, `customReminderMessage` TEXT, `physicalUnblockNfcTagId` TEXT, `isAllowMode` INTEGER NOT NULL, `isAllowModeDomains` INTEGER NOT NULL, `domains` TEXT, `order` INTEGER NOT NULL, `accentColorHex` TEXT, `scheduleJson` TEXT, PRIMARY KEY(`id`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS `blocked_apps` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `profileId` TEXT NOT NULL, `packageName` TEXT NOT NULL, FOREIGN KEY(`profileId`) REFERENCES `profiles`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_blocked_apps_profileId` ON `blocked_apps` (`profileId`)");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_blocked_apps_packageName` ON `blocked_apps` (`packageName`)");
@@ -54,7 +54,7 @@ public final class TymeBoxedDatabase_Impl extends TymeBoxedDatabase {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_sessions_endTime` ON `sessions` (`endTime`)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `tags` (`id` TEXT NOT NULL, `tagUid` TEXT NOT NULL, `registeredAt` INTEGER NOT NULL, `label` TEXT, PRIMARY KEY(`id`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '20f64ddf5424e180f9d0393954219ad3')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '867c276995a8b81cde1e71f8997e9f0c')");
       }
 
       @Override
@@ -107,7 +107,7 @@ public final class TymeBoxedDatabase_Impl extends TymeBoxedDatabase {
       @NonNull
       public RoomOpenHelper.ValidationResult onValidateSchema(
           @NonNull final SupportSQLiteDatabase db) {
-        final HashMap<String, TableInfo.Column> _columnsProfiles = new HashMap<String, TableInfo.Column>(18);
+        final HashMap<String, TableInfo.Column> _columnsProfiles = new HashMap<String, TableInfo.Column>(19);
         _columnsProfiles.put("id", new TableInfo.Column("id", "TEXT", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsProfiles.put("name", new TableInfo.Column("name", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsProfiles.put("createdAt", new TableInfo.Column("createdAt", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
@@ -126,6 +126,7 @@ public final class TymeBoxedDatabase_Impl extends TymeBoxedDatabase {
         _columnsProfiles.put("domains", new TableInfo.Column("domains", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsProfiles.put("order", new TableInfo.Column("order", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsProfiles.put("accentColorHex", new TableInfo.Column("accentColorHex", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsProfiles.put("scheduleJson", new TableInfo.Column("scheduleJson", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
         final HashSet<TableInfo.ForeignKey> _foreignKeysProfiles = new HashSet<TableInfo.ForeignKey>(0);
         final HashSet<TableInfo.Index> _indicesProfiles = new HashSet<TableInfo.Index>(0);
         final TableInfo _infoProfiles = new TableInfo("profiles", _columnsProfiles, _foreignKeysProfiles, _indicesProfiles);
@@ -186,7 +187,7 @@ public final class TymeBoxedDatabase_Impl extends TymeBoxedDatabase {
         }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "20f64ddf5424e180f9d0393954219ad3", "1ca4ebafb71dbdbdcb661ae4b1db3e32");
+    }, "867c276995a8b81cde1e71f8997e9f0c", "ea8a782f062e87f0b21a1a9f1381d2fa");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;

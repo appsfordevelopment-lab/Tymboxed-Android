@@ -118,9 +118,9 @@ class SettingsViewModel @Inject constructor(
 
 /**
  * Settings screen — mirrors iOS [`SettingsView`] card layout:
- *   1. Theme (Appearance) card — accent swatch + dropdown of all 15 colours.
- *   2. In-app blocking row, Permissions &amp; reliability row.
- *   3. About card — version + blocking status + "Made in Hyderabad India".
+ *   1. About card — version + blocking status + "Made in Hyderabad India".
+ *   2. Theme (Appearance) card — accent swatch + dropdown of all 15 colours.
+ *   3. In-app blocking row, Permissions &amp; reliability row.
  *   4. Danger card — delete all data. Full permissions + troubleshooting live on [PermissionsScreen].
  */
 @Composable
@@ -176,20 +176,6 @@ fun SettingsScreen(
                     .padding(top = 4.dp, bottom = 4.dp),
             )
 
-            ThemeCard(
-                currentAccent = accent,
-                onSelect = settingsVm::selectAccent,
-            )
-
-            InAppBlockingSettingsRow(onClick = onOpenInAppBlocking)
-
-            SettingsNavigationRow(
-                title = stringResource(R.string.settings_permissions_reliability_title),
-                subtitle = stringResource(R.string.settings_permissions_reliability_subtitle),
-                icon = Icons.Filled.Shield,
-                onClick = onOpenFullPermissions,
-            )
-
             AboutCard(
                 accessAuthorized = allRequiredGranted,
                 onBuyDevice = {
@@ -202,6 +188,20 @@ fun SettingsScreen(
                         )
                     }
                 },
+            )
+
+            ThemeCard(
+                currentAccent = accent,
+                onSelect = settingsVm::selectAccent,
+            )
+
+            InAppBlockingSettingsRow(onClick = onOpenInAppBlocking)
+
+            SettingsNavigationRow(
+                title = stringResource(R.string.settings_permissions_reliability_title),
+                subtitle = stringResource(R.string.settings_permissions_reliability_subtitle),
+                icon = Icons.Filled.Shield,
+                onClick = onOpenFullPermissions,
             )
 
             DangerCard(

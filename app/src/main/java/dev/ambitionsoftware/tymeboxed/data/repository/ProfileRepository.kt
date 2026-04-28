@@ -6,6 +6,7 @@ import dev.ambitionsoftware.tymeboxed.domain.model.Profile
 import dev.ambitionsoftware.tymeboxed.domain.model.normalizedForBreaks
 import dev.ambitionsoftware.tymeboxed.domain.model.toDomain
 import dev.ambitionsoftware.tymeboxed.domain.model.toEntity
+import dev.ambitionsoftware.tymeboxed.service.ProfileScheduleAlarmScheduler
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.map
 class ProfileRepository @Inject constructor(
     private val profileDao: ProfileDao,
     private val sessionRepository: SessionRepository,
+    private val scheduleAlarmScheduler: ProfileScheduleAlarmScheduler,
 ) {
     fun observeAll(): Flow<List<Profile>> =
         profileDao.observeAllWithApps().map { list ->
@@ -56,6 +58,7 @@ class ProfileRepository @Inject constructor(
                 },
             )
         }
+        scheduleAlarmScheduler.rescheduleAll()
     }
 
     suspend fun delete(id: String) {
@@ -66,10 +69,15 @@ class ProfileRepository @Inject constructor(
             )
         }
         val entity = profileDao.findById(id) ?: return
+        scheduleAlarmScheduler.cancelAlarmsForProfile(id)
         profileDao.deleteProfile(entity)
+        scheduleAlarmScheduler.rescheduleAll()
     }
 
     suspend fun deleteAll() {
+        val ids = profileDao.getAllWithAppsSnapshot().map { it.profile.id }
+        ids.forEach { scheduleAlarmScheduler.cancelAlarmsForProfile(it) }
         profileDao.deleteAll()
+        scheduleAlarmScheduler.rescheduleAll()
     }
 }

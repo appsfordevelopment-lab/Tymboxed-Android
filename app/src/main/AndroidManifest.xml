@@ -128,5 +128,14 @@
                 <action android:name="dev.ambitionsoftware.tymeboxed.action.SESSION_END_REMINDER" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".service.ProfileScheduleReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="dev.ambitionsoftware.tymeboxed.action.SCHEDULE_START" />
+                <action android:name="dev.ambitionsoftware.tymeboxed.action.SCHEDULE_END" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

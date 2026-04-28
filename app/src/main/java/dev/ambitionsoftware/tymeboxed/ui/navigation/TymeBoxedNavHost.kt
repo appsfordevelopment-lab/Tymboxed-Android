@@ -18,6 +18,7 @@ import dev.ambitionsoftware.tymeboxed.ui.screens.home.HomeScreen
 import dev.ambitionsoftware.tymeboxed.ui.screens.intro.IntroScreen
 import dev.ambitionsoftware.tymeboxed.ui.screens.permissions.PermissionsScreen
 import dev.ambitionsoftware.tymeboxed.ui.screens.profile.ProfileEditScreen
+import dev.ambitionsoftware.tymeboxed.ui.screens.profile.SchedulePickerScreen
 import dev.ambitionsoftware.tymeboxed.ui.screens.inapp.InAppBlockingScreen
 import dev.ambitionsoftware.tymeboxed.ui.screens.settings.SettingsScreen
 
@@ -104,6 +105,9 @@ fun TymeBoxedNavHost(
                 onOpenBlockedDomains = {
                     navController.navigate(Routes.profileEditSelectDomains(profileId))
                 },
+                onOpenSchedule = {
+                    navController.navigate(Routes.profileEditSchedule(profileId))
+                },
             )
         }
 
@@ -136,6 +140,23 @@ fun TymeBoxedNavHost(
             }
             val vm: ProfileEditViewModel = hiltViewModel(parentEntry)
             BlockedDomainsPickerScreen(
+                viewModel = vm,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = Routes.PROFILE_EDIT_SCHEDULE,
+            arguments = listOf(
+                navArgument("profileId") { type = NavType.StringType },
+            ),
+        ) { childEntry ->
+            val profileId = childEntry.arguments?.getString("profileId") ?: "new"
+            val parentEntry = remember(childEntry) {
+                navController.getBackStackEntry(Routes.profileEdit(profileId))
+            }
+            val vm: ProfileEditViewModel = hiltViewModel(parentEntry)
+            SchedulePickerScreen(
                 viewModel = vm,
                 onBack = { navController.popBackStack() },
             )

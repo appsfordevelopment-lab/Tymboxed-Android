@@ -40,4 +40,7 @@ data class ProfileEntity(
     val domains: String? = null, // comma-separated
     val order: Int = 0,
     val accentColorHex: String? = null,
+
+    /** JSON [dev.ambitionsoftware.tymeboxed.domain.model.ProfileSchedule]; null = no schedule. */
+    val scheduleJson: String? = null,
 )
